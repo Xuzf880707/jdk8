@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
  * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
  *
  *
@@ -24,11 +24,6 @@
  */
 
 package java.util;
-
-import java.io.Serializable;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 /**
  * A Red-Black tree based {@link NavigableMap} implementation.
@@ -109,18 +104,19 @@ import java.util.function.Consumer;
  */
 
 public class TreeMap<K,V>
-    extends AbstractMap<K,V>
-    implements NavigableMap<K,V>, Cloneable, java.io.Serializable
+        extends AbstractMap<K,V>
+        implements NavigableMap<K,V>, Cloneable, java.io.Serializable
 {
     /**
      * The comparator used to maintain order in this tree map, or
      * null if it uses the natural ordering of its keys.
      *
      * @serial
+     * treeMap中排序使用的比较器
      */
     private final Comparator<? super K> comparator;
-
-    private transient Entry<K,V> root;
+    //根结点
+    private transient Entry<K,V> root = null;
 
     /**
      * The number of entries in the tree
@@ -312,12 +308,12 @@ public class TreeMap<K,V>
     public void putAll(Map<? extends K, ? extends V> map) {
         int mapSize = map.size();
         if (size==0 && mapSize!=0 && map instanceof SortedMap) {
-            Comparator<?> c = ((SortedMap<?,?>)map).comparator();
+            Comparator c = ((SortedMap)map).comparator();
             if (c == comparator || (c != null && c.equals(comparator))) {
                 ++modCount;
                 try {
                     buildFromSorted(mapSize, map.entrySet().iterator(),
-                                    null, null);
+                            null, null);
                 } catch (java.io.IOException cannotHappen) {
                 } catch (ClassNotFoundException cannotHappen) {
                 }
@@ -345,8 +341,7 @@ public class TreeMap<K,V>
             return getEntryUsingComparator(key);
         if (key == null)
             throw new NullPointerException();
-        @SuppressWarnings("unchecked")
-            Comparable<? super K> k = (Comparable<? super K>) key;
+        Comparable<? super K> k = (Comparable<? super K>) key;
         Entry<K,V> p = root;
         while (p != null) {
             int cmp = k.compareTo(p.key);
@@ -367,8 +362,7 @@ public class TreeMap<K,V>
      * worthwhile here.)
      */
     final Entry<K,V> getEntryUsingComparator(Object key) {
-        @SuppressWarnings("unchecked")
-            K k = (K) key;
+        K k = (K) key;
         Comparator<? super K> cpr = comparator;
         if (cpr != null) {
             Entry<K,V> p = root;
@@ -533,36 +527,41 @@ public class TreeMap<K,V>
      *         does not permit null keys
      */
     public V put(K key, V value) {
+        //t表示当前节点，从根结点开始遍历比较
         Entry<K,V> t = root;
+        //如果是空树，则新增KV形成的节点是根结点
         if (t == null) {
+            //红黑树的排序是根据key进行比较。这一步用来验证key是否可以进行比较
             compare(key, key); // type (and possibly null) check
-
+            //使用KV构造出新的entry对象，第三个参数是parent,根节点没有父节点
             root = new Entry<>(key, value, null);
             size = 1;
             modCount++;
             return null;
         }
-        int cmp;
+        int cmp;//用来接收比较结果
         Entry<K,V> parent;
         // split comparator and comparable paths
         Comparator<? super K> cpr = comparator;
         if (cpr != null) {
             do {
-                parent = t;
+                parent = t;//将当前节点赋值给父节点，故从根节点开始遍历
+                //比较输入的参数key和当前节点key的大小
                 cmp = cpr.compare(key, t.key);
+                //参数的key更小，所以往左节点继续走
                 if (cmp < 0)
                     t = t.left;
+                    //参数的key更大，则往右节点继续走
                 else if (cmp > 0)
-                    t = t.right;
-                else
+                    t = t.right;//继续右遍历
+                else//如果相等，则会残忍的覆盖当前节点的value,并返回更新前的值
                     return t.setValue(value);
             } while (t != null);
         }
-        else {
+        else {//如果没有指定比较器的话，则使用自然排序的compareTo方法
             if (key == null)
                 throw new NullPointerException();
-            @SuppressWarnings("unchecked")
-                Comparable<? super K> k = (Comparable<? super K>) key;
+            Comparable<? super K> k = (Comparable<? super K>) key;
             do {
                 parent = t;
                 cmp = k.compareTo(t.key);
@@ -574,11 +573,13 @@ public class TreeMap<K,V>
                     return t.setValue(value);
             } while (t != null);
         }
+        //创建Entry参数，并把parent置入参数
         Entry<K,V> e = new Entry<>(key, value, parent);
         if (cmp < 0)
-            parent.left = e;
+            parent.left = e;//如果比parent小，则成为左孩子
         else
-            parent.right = e;
+            parent.right = e;//如果比parent大，则成为右孩子
+        //还需要对这个新节点进行重新着色和旋转操作，以达到平衡
         fixAfterInsertion(e);
         size++;
         modCount++;
@@ -626,11 +627,11 @@ public class TreeMap<K,V>
      * @return a shallow copy of this map
      */
     public Object clone() {
-        TreeMap<?,?> clone;
+        TreeMap<K,V> clone = null;
         try {
-            clone = (TreeMap<?,?>) super.clone();
+            clone = (TreeMap<K,V>) super.clone();
         } catch (CloneNotSupportedException e) {
-            throw new InternalError(e);
+            throw new InternalError();
         }
 
         // Put clone into "virgin" state (except for comparator)
@@ -784,25 +785,14 @@ public class TreeMap<K,V>
      * the first time this view is requested.  Views are stateless, so
      * there's no reason to create more than one.
      */
-    private transient EntrySet entrySet;
-    private transient KeySet<K> navigableKeySet;
-    private transient NavigableMap<K,V> descendingMap;
+    private transient EntrySet entrySet = null;
+    private transient KeySet<K> navigableKeySet = null;
+    private transient NavigableMap<K,V> descendingMap = null;
 
     /**
      * Returns a {@link Set} view of the keys contained in this map.
-     *
-     * <p>The set's iterator returns the keys in ascending order.
-     * The set's spliterator is
-     * <em><a href="Spliterator.html#binding">late-binding</a></em>,
-     * <em>fail-fast</em>, and additionally reports {@link Spliterator#SORTED}
-     * and {@link Spliterator#ORDERED} with an encounter order that is ascending
-     * key order.  The spliterator's comparator (see
-     * {@link java.util.Spliterator#getComparator()}) is {@code null} if
-     * the tree map's comparator (see {@link #comparator()}) is {@code null}.
-     * Otherwise, the spliterator's comparator is the same as or imposes the
-     * same total ordering as the tree map's comparator.
-     *
-     * <p>The set is backed by the map, so changes to the map are
+     * The set's iterator returns the keys in ascending order.
+     * The set is backed by the map, so changes to the map are
      * reflected in the set, and vice-versa.  If the map is modified
      * while an iteration over the set is in progress (except through
      * the iterator's own {@code remove} operation), the results of
@@ -822,7 +812,7 @@ public class TreeMap<K,V>
      */
     public NavigableSet<K> navigableKeySet() {
         KeySet<K> nks = navigableKeySet;
-        return (nks != null) ? nks : (navigableKeySet = new KeySet<>(this));
+        return (nks != null) ? nks : (navigableKeySet = new KeySet(this));
     }
 
     /**
@@ -834,15 +824,9 @@ public class TreeMap<K,V>
 
     /**
      * Returns a {@link Collection} view of the values contained in this map.
-     *
-     * <p>The collection's iterator returns the values in ascending order
-     * of the corresponding keys. The collection's spliterator is
-     * <em><a href="Spliterator.html#binding">late-binding</a></em>,
-     * <em>fail-fast</em>, and additionally reports {@link Spliterator#ORDERED}
-     * with an encounter order that is ascending order of the corresponding
-     * keys.
-     *
-     * <p>The collection is backed by the map, so changes to the map are
+     * The collection's iterator returns the values in ascending order
+     * of the corresponding keys.
+     * The collection is backed by the map, so changes to the map are
      * reflected in the collection, and vice-versa.  If the map is
      * modified while an iteration over the collection is in progress
      * (except through the iterator's own {@code remove} operation),
@@ -855,24 +839,13 @@ public class TreeMap<K,V>
      */
     public Collection<V> values() {
         Collection<V> vs = values;
-        if (vs == null) {
-            vs = new Values();
-            values = vs;
-        }
-        return vs;
+        return (vs != null) ? vs : (values = new Values());
     }
 
     /**
      * Returns a {@link Set} view of the mappings contained in this map.
-     *
-     * <p>The set's iterator returns the entries in ascending key order. The
-     * sets's spliterator is
-     * <em><a href="Spliterator.html#binding">late-binding</a></em>,
-     * <em>fail-fast</em>, and additionally reports {@link Spliterator#SORTED} and
-     * {@link Spliterator#ORDERED} with an encounter order that is ascending key
-     * order.
-     *
-     * <p>The set is backed by the map, so changes to the map are
+     * The set's iterator returns the entries in ascending key order.
+     * The set is backed by the map, so changes to the map are
      * reflected in the set, and vice-versa.  If the map is modified
      * while an iteration over the set is in progress (except through
      * the iterator's own {@code remove} operation, or through the
@@ -895,9 +868,9 @@ public class TreeMap<K,V>
     public NavigableMap<K, V> descendingMap() {
         NavigableMap<K, V> km = descendingMap;
         return (km != null) ? km :
-            (descendingMap = new DescendingSubMap<>(this,
-                                                    true, null, true,
-                                                    true, null, true));
+                (descendingMap = new DescendingSubMap(this,
+                        true, null, true,
+                        true, null, true));
     }
 
     /**
@@ -910,9 +883,9 @@ public class TreeMap<K,V>
      */
     public NavigableMap<K,V> subMap(K fromKey, boolean fromInclusive,
                                     K toKey,   boolean toInclusive) {
-        return new AscendingSubMap<>(this,
-                                     false, fromKey, fromInclusive,
-                                     false, toKey,   toInclusive);
+        return new AscendingSubMap(this,
+                false, fromKey, fromInclusive,
+                false, toKey,   toInclusive);
     }
 
     /**
@@ -924,9 +897,9 @@ public class TreeMap<K,V>
      * @since 1.6
      */
     public NavigableMap<K,V> headMap(K toKey, boolean inclusive) {
-        return new AscendingSubMap<>(this,
-                                     true,  null,  true,
-                                     false, toKey, inclusive);
+        return new AscendingSubMap(this,
+                true,  null,  true,
+                false, toKey, inclusive);
     }
 
     /**
@@ -938,9 +911,9 @@ public class TreeMap<K,V>
      * @since 1.6
      */
     public NavigableMap<K,V> tailMap(K fromKey, boolean inclusive) {
-        return new AscendingSubMap<>(this,
-                                     false, fromKey, inclusive,
-                                     true,  null,    true);
+        return new AscendingSubMap(this,
+                false, fromKey, inclusive,
+                true,  null,    true);
     }
 
     /**
@@ -976,54 +949,6 @@ public class TreeMap<K,V>
         return tailMap(fromKey, true);
     }
 
-    @Override
-    public boolean replace(K key, V oldValue, V newValue) {
-        Entry<K,V> p = getEntry(key);
-        if (p!=null && Objects.equals(oldValue, p.value)) {
-            p.value = newValue;
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public V replace(K key, V value) {
-        Entry<K,V> p = getEntry(key);
-        if (p!=null) {
-            V oldValue = p.value;
-            p.value = value;
-            return oldValue;
-        }
-        return null;
-    }
-
-    @Override
-    public void forEach(BiConsumer<? super K, ? super V> action) {
-        Objects.requireNonNull(action);
-        int expectedModCount = modCount;
-        for (Entry<K, V> e = getFirstEntry(); e != null; e = successor(e)) {
-            action.accept(e.key, e.value);
-
-            if (expectedModCount != modCount) {
-                throw new ConcurrentModificationException();
-            }
-        }
-    }
-
-    @Override
-    public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
-        Objects.requireNonNull(function);
-        int expectedModCount = modCount;
-
-        for (Entry<K, V> e = getFirstEntry(); e != null; e = successor(e)) {
-            e.value = function.apply(e.key, e.value);
-
-            if (expectedModCount != modCount) {
-                throw new ConcurrentModificationException();
-            }
-        }
-    }
-
     // View class support
 
     class Values extends AbstractCollection<V> {
@@ -1052,10 +977,6 @@ public class TreeMap<K,V>
         public void clear() {
             TreeMap.this.clear();
         }
-
-        public Spliterator<V> spliterator() {
-            return new ValueSpliterator<K,V>(TreeMap.this, null, null, 0, -1, 0);
-        }
     }
 
     class EntrySet extends AbstractSet<Map.Entry<K,V>> {
@@ -1066,8 +987,8 @@ public class TreeMap<K,V>
         public boolean contains(Object o) {
             if (!(o instanceof Map.Entry))
                 return false;
-            Map.Entry<?,?> entry = (Map.Entry<?,?>) o;
-            Object value = entry.getValue();
+            Map.Entry<K,V> entry = (Map.Entry<K,V>) o;
+            V value = entry.getValue();
             Entry<K,V> p = getEntry(entry.getKey());
             return p != null && valEquals(p.getValue(), value);
         }
@@ -1075,8 +996,8 @@ public class TreeMap<K,V>
         public boolean remove(Object o) {
             if (!(o instanceof Map.Entry))
                 return false;
-            Map.Entry<?,?> entry = (Map.Entry<?,?>) o;
-            Object value = entry.getValue();
+            Map.Entry<K,V> entry = (Map.Entry<K,V>) o;
+            V value = entry.getValue();
             Entry<K,V> p = getEntry(entry.getKey());
             if (p != null && valEquals(p.getValue(), value)) {
                 deleteEntry(p);
@@ -1091,10 +1012,6 @@ public class TreeMap<K,V>
 
         public void clear() {
             TreeMap.this.clear();
-        }
-
-        public Spliterator<Map.Entry<K,V>> spliterator() {
-            return new EntrySpliterator<K,V>(TreeMap.this, null, null, 0, -1, 0);
         }
     }
 
@@ -1115,21 +1032,21 @@ public class TreeMap<K,V>
     }
 
     static final class KeySet<E> extends AbstractSet<E> implements NavigableSet<E> {
-        private final NavigableMap<E, ?> m;
-        KeySet(NavigableMap<E,?> map) { m = map; }
+        private final NavigableMap<E, Object> m;
+        KeySet(NavigableMap<E,Object> map) { m = map; }
 
         public Iterator<E> iterator() {
             if (m instanceof TreeMap)
-                return ((TreeMap<E,?>)m).keyIterator();
+                return ((TreeMap<E,Object>)m).keyIterator();
             else
-                return ((TreeMap.NavigableSubMap<E,?>)m).keyIterator();
+                return (Iterator<E>)(((TreeMap.NavigableSubMap)m).keyIterator());
         }
 
         public Iterator<E> descendingIterator() {
             if (m instanceof TreeMap)
-                return ((TreeMap<E,?>)m).descendingKeyIterator();
+                return ((TreeMap<E,Object>)m).descendingKeyIterator();
             else
-                return ((TreeMap.NavigableSubMap<E,?>)m).descendingKeyIterator();
+                return (Iterator<E>)(((TreeMap.NavigableSubMap)m).descendingKeyIterator());
         }
 
         public int size() { return m.size(); }
@@ -1144,11 +1061,11 @@ public class TreeMap<K,V>
         public E last() { return m.lastKey(); }
         public Comparator<? super E> comparator() { return m.comparator(); }
         public E pollFirst() {
-            Map.Entry<E,?> e = m.pollFirstEntry();
+            Map.Entry<E,Object> e = m.pollFirstEntry();
             return (e == null) ? null : e.getKey();
         }
         public E pollLast() {
-            Map.Entry<E,?> e = m.pollLastEntry();
+            Map.Entry<E,Object> e = m.pollLastEntry();
             return (e == null) ? null : e.getKey();
         }
         public boolean remove(Object o) {
@@ -1159,7 +1076,7 @@ public class TreeMap<K,V>
         public NavigableSet<E> subSet(E fromElement, boolean fromInclusive,
                                       E toElement,   boolean toInclusive) {
             return new KeySet<>(m.subMap(fromElement, fromInclusive,
-                                          toElement,   toInclusive));
+                    toElement,   toInclusive));
         }
         public NavigableSet<E> headSet(E toElement, boolean inclusive) {
             return new KeySet<>(m.headMap(toElement, inclusive));
@@ -1177,11 +1094,7 @@ public class TreeMap<K,V>
             return tailSet(fromElement, true);
         }
         public NavigableSet<E> descendingSet() {
-            return new KeySet<>(m.descendingMap());
-        }
-
-        public Spliterator<E> spliterator() {
-            return keySpliteratorFor(m);
+            return new KeySet(m.descendingMap());
         }
     }
 
@@ -1273,15 +1186,6 @@ public class TreeMap<K,V>
         public K next() {
             return prevEntry().key;
         }
-        public void remove() {
-            if (lastReturned == null)
-                throw new IllegalStateException();
-            if (modCount != expectedModCount)
-                throw new ConcurrentModificationException();
-            deleteEntry(lastReturned);
-            lastReturned = null;
-            expectedModCount = modCount;
-        }
     }
 
     // Little utilities
@@ -1289,10 +1193,10 @@ public class TreeMap<K,V>
     /**
      * Compares two keys using the correct comparison method for this TreeMap.
      */
-    @SuppressWarnings("unchecked")
+    //如果定义了comparator，则根据comparator进行比较，不然就根据key1的自然实现接口Comparable进行比较
     final int compare(Object k1, Object k2) {
         return comparator==null ? ((Comparable<? super K>)k1).compareTo((K)k2)
-            : comparator.compare((K)k1, (K)k2);
+                : comparator.compare((K)k1, (K)k2);
     }
 
     /**
@@ -1308,7 +1212,7 @@ public class TreeMap<K,V>
      */
     static <K,V> Map.Entry<K,V> exportEntry(TreeMap.Entry<K,V> e) {
         return (e == null) ? null :
-            new AbstractMap.SimpleImmutableEntry<>(e);
+                new AbstractMap.SimpleImmutableEntry<>(e);
     }
 
     /**
@@ -1341,8 +1245,7 @@ public class TreeMap<K,V>
      * @serial include
      */
     abstract static class NavigableSubMap<K,V> extends AbstractMap<K,V>
-        implements NavigableMap<K,V>, java.io.Serializable {
-        private static final long serialVersionUID = -2102997345730753016L;
+            implements NavigableMap<K,V>, java.io.Serializable {
         /**
          * The backing map.
          */
@@ -1408,7 +1311,7 @@ public class TreeMap<K,V>
 
         final boolean inClosedRange(Object key) {
             return (fromStart || m.compare(key, lo) >= 0)
-                && (toEnd || m.compare(hi, key) >= 0);
+                    && (toEnd || m.compare(hi, key) >= 0);
         }
 
         final boolean inRange(Object key, boolean inclusive) {
@@ -1423,17 +1326,17 @@ public class TreeMap<K,V>
 
         final TreeMap.Entry<K,V> absLowest() {
             TreeMap.Entry<K,V> e =
-                (fromStart ?  m.getFirstEntry() :
-                 (loInclusive ? m.getCeilingEntry(lo) :
-                                m.getHigherEntry(lo)));
+                    (fromStart ?  m.getFirstEntry() :
+                            (loInclusive ? m.getCeilingEntry(lo) :
+                                    m.getHigherEntry(lo)));
             return (e == null || tooHigh(e.key)) ? null : e;
         }
 
         final TreeMap.Entry<K,V> absHighest() {
             TreeMap.Entry<K,V> e =
-                (toEnd ?  m.getLastEntry() :
-                 (hiInclusive ?  m.getFloorEntry(hi) :
-                                 m.getLowerEntry(hi)));
+                    (toEnd ?  m.getLastEntry() :
+                            (hiInclusive ?  m.getFloorEntry(hi) :
+                                    m.getLowerEntry(hi)));
             return (e == null || tooLow(e.key)) ? null : e;
         }
 
@@ -1468,15 +1371,15 @@ public class TreeMap<K,V>
         /** Returns the absolute high fence for ascending traversal */
         final TreeMap.Entry<K,V> absHighFence() {
             return (toEnd ? null : (hiInclusive ?
-                                    m.getHigherEntry(hi) :
-                                    m.getCeilingEntry(hi)));
+                    m.getHigherEntry(hi) :
+                    m.getCeilingEntry(hi)));
         }
 
         /** Return the absolute low fence for descending traversal  */
         final TreeMap.Entry<K,V> absLowFence() {
             return (fromStart ? null : (loInclusive ?
-                                        m.getLowerEntry(lo) :
-                                        m.getFloorEntry(lo)));
+                    m.getLowerEntry(lo) :
+                    m.getFloorEntry(lo)));
         }
 
         // Abstract methods defined in ascending vs descending classes
@@ -1491,8 +1394,6 @@ public class TreeMap<K,V>
 
         /** Returns ascending iterator from the perspective of this submap */
         abstract Iterator<K> keyIterator();
-
-        abstract Spliterator<K> keySpliterator();
 
         /** Returns descending iterator from the perspective of this submap */
         abstract Iterator<K> descendingKeyIterator();
@@ -1590,14 +1491,14 @@ public class TreeMap<K,V>
         }
 
         // Views
-        transient NavigableMap<K,V> descendingMapView;
-        transient EntrySetView entrySetView;
-        transient KeySet<K> navigableKeySetView;
+        transient NavigableMap<K,V> descendingMapView = null;
+        transient EntrySetView entrySetView = null;
+        transient KeySet<K> navigableKeySetView = null;
 
         public final NavigableSet<K> navigableKeySet() {
             KeySet<K> nksv = navigableKeySetView;
             return (nksv != null) ? nksv :
-                (navigableKeySetView = new TreeMap.KeySet<>(this));
+                    (navigableKeySetView = new TreeMap.KeySet(this));
         }
 
         public final Set<K> keySet() {
@@ -1631,7 +1532,7 @@ public class TreeMap<K,V>
                 if (size == -1 || sizeModCount != m.modCount) {
                     sizeModCount = m.modCount;
                     size = 0;
-                    Iterator<?> i = iterator();
+                    Iterator i = iterator();
                     while (i.hasNext()) {
                         size++;
                         i.next();
@@ -1648,25 +1549,25 @@ public class TreeMap<K,V>
             public boolean contains(Object o) {
                 if (!(o instanceof Map.Entry))
                     return false;
-                Map.Entry<?,?> entry = (Map.Entry<?,?>) o;
-                Object key = entry.getKey();
+                Map.Entry<K,V> entry = (Map.Entry<K,V>) o;
+                K key = entry.getKey();
                 if (!inRange(key))
                     return false;
-                TreeMap.Entry<?,?> node = m.getEntry(key);
+                TreeMap.Entry node = m.getEntry(key);
                 return node != null &&
-                    valEquals(node.getValue(), entry.getValue());
+                        valEquals(node.getValue(), entry.getValue());
             }
 
             public boolean remove(Object o) {
                 if (!(o instanceof Map.Entry))
                     return false;
-                Map.Entry<?,?> entry = (Map.Entry<?,?>) o;
-                Object key = entry.getKey();
+                Map.Entry<K,V> entry = (Map.Entry<K,V>) o;
+                K key = entry.getKey();
                 if (!inRange(key))
                     return false;
                 TreeMap.Entry<K,V> node = m.getEntry(key);
                 if (node!=null && valEquals(node.getValue(),
-                                            entry.getValue())) {
+                        entry.getValue())) {
                     m.deleteEntry(node);
                     return true;
                 }
@@ -1755,6 +1656,19 @@ public class TreeMap<K,V>
             }
         }
 
+        final class SubMapKeyIterator extends SubMapIterator<K> {
+            SubMapKeyIterator(TreeMap.Entry<K,V> first,
+                              TreeMap.Entry<K,V> fence) {
+                super(first, fence);
+            }
+            public K next() {
+                return nextEntry().key;
+            }
+            public void remove() {
+                removeAscending();
+            }
+        }
+
         final class DescendingSubMapEntryIterator extends SubMapIterator<Map.Entry<K,V>> {
             DescendingSubMapEntryIterator(TreeMap.Entry<K,V> last,
                                           TreeMap.Entry<K,V> fence) {
@@ -1769,47 +1683,7 @@ public class TreeMap<K,V>
             }
         }
 
-        // Implement minimal Spliterator as KeySpliterator backup
-        final class SubMapKeyIterator extends SubMapIterator<K>
-            implements Spliterator<K> {
-            SubMapKeyIterator(TreeMap.Entry<K,V> first,
-                              TreeMap.Entry<K,V> fence) {
-                super(first, fence);
-            }
-            public K next() {
-                return nextEntry().key;
-            }
-            public void remove() {
-                removeAscending();
-            }
-            public Spliterator<K> trySplit() {
-                return null;
-            }
-            public void forEachRemaining(Consumer<? super K> action) {
-                while (hasNext())
-                    action.accept(next());
-            }
-            public boolean tryAdvance(Consumer<? super K> action) {
-                if (hasNext()) {
-                    action.accept(next());
-                    return true;
-                }
-                return false;
-            }
-            public long estimateSize() {
-                return Long.MAX_VALUE;
-            }
-            public int characteristics() {
-                return Spliterator.DISTINCT | Spliterator.ORDERED |
-                    Spliterator.SORTED;
-            }
-            public final Comparator<? super K>  getComparator() {
-                return NavigableSubMap.this.comparator();
-            }
-        }
-
-        final class DescendingSubMapKeyIterator extends SubMapIterator<K>
-            implements Spliterator<K> {
+        final class DescendingSubMapKeyIterator extends SubMapIterator<K> {
             DescendingSubMapKeyIterator(TreeMap.Entry<K,V> last,
                                         TreeMap.Entry<K,V> fence) {
                 super(last, fence);
@@ -1819,26 +1693,6 @@ public class TreeMap<K,V>
             }
             public void remove() {
                 removeDescending();
-            }
-            public Spliterator<K> trySplit() {
-                return null;
-            }
-            public void forEachRemaining(Consumer<? super K> action) {
-                while (hasNext())
-                    action.accept(next());
-            }
-            public boolean tryAdvance(Consumer<? super K> action) {
-                if (hasNext()) {
-                    action.accept(next());
-                    return true;
-                }
-                return false;
-            }
-            public long estimateSize() {
-                return Long.MAX_VALUE;
-            }
-            public int characteristics() {
-                return Spliterator.DISTINCT | Spliterator.ORDERED;
             }
         }
     }
@@ -1865,41 +1719,37 @@ public class TreeMap<K,V>
                 throw new IllegalArgumentException("fromKey out of range");
             if (!inRange(toKey, toInclusive))
                 throw new IllegalArgumentException("toKey out of range");
-            return new AscendingSubMap<>(m,
-                                         false, fromKey, fromInclusive,
-                                         false, toKey,   toInclusive);
+            return new AscendingSubMap(m,
+                    false, fromKey, fromInclusive,
+                    false, toKey,   toInclusive);
         }
 
         public NavigableMap<K,V> headMap(K toKey, boolean inclusive) {
             if (!inRange(toKey, inclusive))
                 throw new IllegalArgumentException("toKey out of range");
-            return new AscendingSubMap<>(m,
-                                         fromStart, lo,    loInclusive,
-                                         false,     toKey, inclusive);
+            return new AscendingSubMap(m,
+                    fromStart, lo,    loInclusive,
+                    false,     toKey, inclusive);
         }
 
         public NavigableMap<K,V> tailMap(K fromKey, boolean inclusive) {
             if (!inRange(fromKey, inclusive))
                 throw new IllegalArgumentException("fromKey out of range");
-            return new AscendingSubMap<>(m,
-                                         false, fromKey, inclusive,
-                                         toEnd, hi,      hiInclusive);
+            return new AscendingSubMap(m,
+                    false, fromKey, inclusive,
+                    toEnd, hi,      hiInclusive);
         }
 
         public NavigableMap<K,V> descendingMap() {
             NavigableMap<K,V> mv = descendingMapView;
             return (mv != null) ? mv :
-                (descendingMapView =
-                 new DescendingSubMap<>(m,
-                                        fromStart, lo, loInclusive,
-                                        toEnd,     hi, hiInclusive));
+                    (descendingMapView =
+                            new DescendingSubMap(m,
+                                    fromStart, lo, loInclusive,
+                                    toEnd,     hi, hiInclusive));
         }
 
         Iterator<K> keyIterator() {
-            return new SubMapKeyIterator(absLowest(), absHighFence());
-        }
-
-        Spliterator<K> keySpliterator() {
             return new SubMapKeyIterator(absLowest(), absHighFence());
         }
 
@@ -1915,7 +1765,7 @@ public class TreeMap<K,V>
 
         public Set<Map.Entry<K,V>> entrySet() {
             EntrySetView es = entrySetView;
-            return (es != null) ? es : (entrySetView = new AscendingEntrySetView());
+            return (es != null) ? es : new AscendingEntrySetView();
         }
 
         TreeMap.Entry<K,V> subLowest()       { return absLowest(); }
@@ -1932,13 +1782,13 @@ public class TreeMap<K,V>
     static final class DescendingSubMap<K,V>  extends NavigableSubMap<K,V> {
         private static final long serialVersionUID = 912986545866120460L;
         DescendingSubMap(TreeMap<K,V> m,
-                        boolean fromStart, K lo, boolean loInclusive,
-                        boolean toEnd,     K hi, boolean hiInclusive) {
+                         boolean fromStart, K lo, boolean loInclusive,
+                         boolean toEnd,     K hi, boolean hiInclusive) {
             super(m, fromStart, lo, loInclusive, toEnd, hi, hiInclusive);
         }
 
         private final Comparator<? super K> reverseComparator =
-            Collections.reverseOrder(m.comparator);
+                Collections.reverseOrder(m.comparator);
 
         public Comparator<? super K> comparator() {
             return reverseComparator;
@@ -1950,41 +1800,37 @@ public class TreeMap<K,V>
                 throw new IllegalArgumentException("fromKey out of range");
             if (!inRange(toKey, toInclusive))
                 throw new IllegalArgumentException("toKey out of range");
-            return new DescendingSubMap<>(m,
-                                          false, toKey,   toInclusive,
-                                          false, fromKey, fromInclusive);
+            return new DescendingSubMap(m,
+                    false, toKey,   toInclusive,
+                    false, fromKey, fromInclusive);
         }
 
         public NavigableMap<K,V> headMap(K toKey, boolean inclusive) {
             if (!inRange(toKey, inclusive))
                 throw new IllegalArgumentException("toKey out of range");
-            return new DescendingSubMap<>(m,
-                                          false, toKey, inclusive,
-                                          toEnd, hi,    hiInclusive);
+            return new DescendingSubMap(m,
+                    false, toKey, inclusive,
+                    toEnd, hi,    hiInclusive);
         }
 
         public NavigableMap<K,V> tailMap(K fromKey, boolean inclusive) {
             if (!inRange(fromKey, inclusive))
                 throw new IllegalArgumentException("fromKey out of range");
-            return new DescendingSubMap<>(m,
-                                          fromStart, lo, loInclusive,
-                                          false, fromKey, inclusive);
+            return new DescendingSubMap(m,
+                    fromStart, lo, loInclusive,
+                    false, fromKey, inclusive);
         }
 
         public NavigableMap<K,V> descendingMap() {
             NavigableMap<K,V> mv = descendingMapView;
             return (mv != null) ? mv :
-                (descendingMapView =
-                 new AscendingSubMap<>(m,
-                                       fromStart, lo, loInclusive,
-                                       toEnd,     hi, hiInclusive));
+                    (descendingMapView =
+                            new AscendingSubMap(m,
+                                    fromStart, lo, loInclusive,
+                                    toEnd,     hi, hiInclusive));
         }
 
         Iterator<K> keyIterator() {
-            return new DescendingSubMapKeyIterator(absHighest(), absLowFence());
-        }
-
-        Spliterator<K> keySpliterator() {
             return new DescendingSubMapKeyIterator(absHighest(), absLowFence());
         }
 
@@ -2000,7 +1846,7 @@ public class TreeMap<K,V>
 
         public Set<Map.Entry<K,V>> entrySet() {
             EntrySetView es = entrySetView;
-            return (es != null) ? es : (entrySetView = new DescendingEntrySetView());
+            return (es != null) ? es : new DescendingEntrySetView();
         }
 
         TreeMap.Entry<K,V> subLowest()       { return absHighest(); }
@@ -2021,14 +1867,14 @@ public class TreeMap<K,V>
      * @serial include
      */
     private class SubMap extends AbstractMap<K,V>
-        implements SortedMap<K,V>, java.io.Serializable {
+            implements SortedMap<K,V>, java.io.Serializable {
         private static final long serialVersionUID = -6520786458950516097L;
         private boolean fromStart = false, toEnd = false;
         private K fromKey, toKey;
         private Object readResolve() {
-            return new AscendingSubMap<>(TreeMap.this,
-                                         fromStart, fromKey, true,
-                                         toEnd, toKey, false);
+            return new AscendingSubMap(TreeMap.this,
+                    fromStart, fromKey, true,
+                    toEnd, toKey, false);
         }
         public Set<Map.Entry<K,V>> entrySet() { throw new InternalError(); }
         public K lastKey() { throw new InternalError(); }
@@ -2049,13 +1895,18 @@ public class TreeMap<K,V>
      * Node in the Tree.  Doubles as a means to pass key-value pairs back to
      * user (see Map.Entry).
      */
-
+    /***
+     * TreeMap的内部类，存储红黑树节点的载体类
+     * @param <K>
+     * @param <V>
+     */
     static final class Entry<K,V> implements Map.Entry<K,V> {
         K key;
         V value;
-        Entry<K,V> left;
-        Entry<K,V> right;
+        Entry<K,V> left = null;
+        Entry<K,V> right = null;
         Entry<K,V> parent;
+        //节点颜色信息，默认是黑色
         boolean color = BLACK;
 
         /**
@@ -2195,7 +2046,7 @@ public class TreeMap<K,V>
      * are used to avoid messiness surrounding nullness checks in the main
      * algorithms.
      */
-
+    //p==null时返回的都是黑色
     private static <K,V> boolean colorOf(Entry<K,V> p) {
         return (p == null ? BLACK : p.color);
     }
@@ -2218,25 +2069,40 @@ public class TreeMap<K,V>
     }
 
     /** From CLR */
+    /***
+     * 左旋转
+     * @param p
+     */
     private void rotateLeft(Entry<K,V> p) {
+        //如果参数节点不是null节点
         if (p != null) {
+            //获取p的右子节点r
             Entry<K,V> r = p.right;
+            //将r的左子树设置为p的右子树
             p.right = r.left;
+            //若r的左子树为空，则将p设置r左子树的父亲
             if (r.left != null)
                 r.left.parent = p;
+            //将p的父亲设置为r的父亲
             r.parent = p.parent;
+            //无论如何，r都要在p父亲心目中替代p的位置
             if (p.parent == null)
                 root = r;
             else if (p.parent.left == p)
                 p.parent.left = r;
             else
                 p.parent.right = r;
+            //将p设置为r的左子树
             r.left = p;
             p.parent = r;
         }
     }
 
     /** From CLR */
+    /***
+     * 右旋的道理是一样的
+     * @param p
+     */
     private void rotateRight(Entry<K,V> p) {
         if (p != null) {
             Entry<K,V> l = p.left;
@@ -2254,27 +2120,42 @@ public class TreeMap<K,V>
     }
 
     /** From CLR */
+    /***
+     * 重新着色和自旋转
+     * @param x
+     *
+     * 调整后的根结点必须是黑色
+     * 叶子节点可能是黑色的，也可能是红色的，但是叶子节点下挂的两个虚节点必须是黑色的
+     */
     private void fixAfterInsertion(Entry<K,V> x) {
+        //虽然内部类的Entry默认的颜色是黑色，但是新节点一律着色为红色
         x.color = RED;
-
+        //新节点是根节点，或者其父节点为黑色，则满足红黑色的性质，无须调整
+        //x值的改变是用红色高亮表示，改变的过程是不断向上游遍历（或内部调整），直到父节点是黑色，或者到达根结点
+        //如果他的叔叔节点是黑色的，则会进行自旋转，(注意如果叔叔为空，也是返回黑色的)
         while (x != null && x != root && x.parent.color == RED) {
+            //如果父节点是其父节点(或者叫爷爷)的左子节点
             if (parentOf(x) == leftOf(parentOf(parentOf(x)))) {
+                //这个时候查看爷爷的右子节点(简称右叔)的颜色
                 Entry<K,V> y = rightOf(parentOf(parentOf(x)));
+                //如果右叔是红色，此时通过局部颜色调整，就可以使子树满足红黑色的性质
                 if (colorOf(y) == RED) {
-                    setColor(parentOf(x), BLACK);
-                    setColor(y, BLACK);
-                    setColor(parentOf(parentOf(x)), RED);
-                    x = parentOf(parentOf(x));
-                } else {
-                    if (x == rightOf(parentOf(x))) {
+                    setColor(parentOf(x), BLACK);//父节点-->黑
+                    setColor(y, BLACK);//右叔-->黑
+                    setColor(parentOf(parentOf(x)), RED);//爷爷-->红
+                    x = parentOf(parentOf(x));//然后从爷爷开始继续往上游遍历
+                } else {//如果右叔是黑色的，则需要加入旋转
+                    if (x == rightOf(parentOf(x))) {//如果当前节点x是父亲的右子节点，先对父亲做一次左旋转
+                        //对父亲做一次左旋转操作，红色的父亲会沉入其左侧位置，将父亲赋值给x
                         x = parentOf(x);
                         rotateLeft(x);
                     }
+                    //重新着色并对爷爷进行右旋转操作
                     setColor(parentOf(x), BLACK);
-                    setColor(parentOf(parentOf(x)), RED);
+                    setColor(parentOf(parentOf(x)), RED);//
                     rotateRight(parentOf(parentOf(x)));
                 }
-            } else {
+            } else {//如果父亲是右节点，则看左叔的脸色
                 Entry<K,V> y = leftOf(parentOf(parentOf(x)));
                 if (colorOf(y) == RED) {
                     setColor(parentOf(x), BLACK);
@@ -2360,7 +2241,7 @@ public class TreeMap<K,V>
                 }
 
                 if (colorOf(leftOf(sib))  == BLACK &&
-                    colorOf(rightOf(sib)) == BLACK) {
+                        colorOf(rightOf(sib)) == BLACK) {
                     setColor(sib, RED);
                     x = parentOf(x);
                 } else {
@@ -2387,7 +2268,7 @@ public class TreeMap<K,V>
                 }
 
                 if (colorOf(rightOf(sib)) == BLACK &&
-                    colorOf(leftOf(sib)) == BLACK) {
+                        colorOf(leftOf(sib)) == BLACK) {
                     setColor(sib, RED);
                     x = parentOf(x);
                 } else {
@@ -2424,7 +2305,7 @@ public class TreeMap<K,V>
      *             Comparator).
      */
     private void writeObject(java.io.ObjectOutputStream s)
-        throws java.io.IOException {
+            throws java.io.IOException {
         // Write out the Comparator and any hidden stuff
         s.defaultWriteObject();
 
@@ -2444,7 +2325,7 @@ public class TreeMap<K,V>
      * deserialize it).
      */
     private void readObject(final java.io.ObjectInputStream s)
-        throws java.io.IOException, ClassNotFoundException {
+            throws java.io.IOException, ClassNotFoundException {
         // Read in the Comparator and any hidden stuff
         s.defaultReadObject();
 
@@ -2456,7 +2337,7 @@ public class TreeMap<K,V>
 
     /** Intended to be called only from TreeSet.readObject */
     void readTreeSet(int size, java.io.ObjectInputStream s, V defaultVal)
-        throws java.io.IOException, ClassNotFoundException {
+            throws java.io.IOException, ClassNotFoundException {
         buildFromSorted(size, null, s, defaultVal);
     }
 
@@ -2495,18 +2376,18 @@ public class TreeMap<K,V>
      * @param defaultVal if non-null, this default value is used for
      *        each value in the map.  If null, each value is read from
      *        iterator or stream, as described above.
-     * @throws java.io.IOException propagated from stream reads. This cannot
+     * @throws IOException propagated from stream reads. This cannot
      *         occur if str is null.
      * @throws ClassNotFoundException propagated from readObject.
      *         This cannot occur if str is null.
      */
-    private void buildFromSorted(int size, Iterator<?> it,
+    private void buildFromSorted(int size, Iterator it,
                                  java.io.ObjectInputStream str,
                                  V defaultVal)
-        throws  java.io.IOException, ClassNotFoundException {
+            throws  java.io.IOException, ClassNotFoundException {
         this.size = size;
         root = buildFromSorted(0, 0, size-1, computeRedLevel(size),
-                               it, str, defaultVal);
+                it, str, defaultVal);
     }
 
     /**
@@ -2523,13 +2404,12 @@ public class TreeMap<K,V>
      * @param redLevel the level at which nodes should be red.
      *        Must be equal to computeRedLevel for tree of this size.
      */
-    @SuppressWarnings("unchecked")
     private final Entry<K,V> buildFromSorted(int level, int lo, int hi,
                                              int redLevel,
-                                             Iterator<?> it,
+                                             Iterator it,
                                              java.io.ObjectInputStream str,
                                              V defaultVal)
-        throws  java.io.IOException, ClassNotFoundException {
+            throws  java.io.IOException, ClassNotFoundException {
         /*
          * Strategy: The root is the middlemost element. To get to it, we
          * have to first recursively construct the entire left subtree,
@@ -2549,16 +2429,16 @@ public class TreeMap<K,V>
         Entry<K,V> left  = null;
         if (lo < mid)
             left = buildFromSorted(level+1, lo, mid - 1, redLevel,
-                                   it, str, defaultVal);
+                    it, str, defaultVal);
 
         // extract key and/or value from iterator or stream
         K key;
         V value;
         if (it != null) {
             if (defaultVal==null) {
-                Map.Entry<?,?> entry = (Map.Entry<?,?>)it.next();
-                key = (K)entry.getKey();
-                value = (V)entry.getValue();
+                Map.Entry<K,V> entry = (Map.Entry<K,V>)it.next();
+                key = entry.getKey();
+                value = entry.getValue();
             } else {
                 key = (K)it.next();
                 value = defaultVal;
@@ -2581,7 +2461,7 @@ public class TreeMap<K,V>
 
         if (mid < hi) {
             Entry<K,V> right = buildFromSorted(level+1, mid+1, hi, redLevel,
-                                               it, str, defaultVal);
+                    it, str, defaultVal);
             middle.right = right;
             right.parent = middle;
         }
@@ -2603,417 +2483,5 @@ public class TreeMap<K,V>
         for (int m = sz - 1; m >= 0; m = m / 2 - 1)
             level++;
         return level;
-    }
-
-    /**
-     * Currently, we support Spliterator-based versions only for the
-     * full map, in either plain of descending form, otherwise relying
-     * on defaults because size estimation for submaps would dominate
-     * costs. The type tests needed to check these for key views are
-     * not very nice but avoid disrupting existing class
-     * structures. Callers must use plain default spliterators if this
-     * returns null.
-     */
-    static <K> Spliterator<K> keySpliteratorFor(NavigableMap<K,?> m) {
-        if (m instanceof TreeMap) {
-            @SuppressWarnings("unchecked") TreeMap<K,Object> t =
-                (TreeMap<K,Object>) m;
-            return t.keySpliterator();
-        }
-        if (m instanceof DescendingSubMap) {
-            @SuppressWarnings("unchecked") DescendingSubMap<K,?> dm =
-                (DescendingSubMap<K,?>) m;
-            TreeMap<K,?> tm = dm.m;
-            if (dm == tm.descendingMap) {
-                @SuppressWarnings("unchecked") TreeMap<K,Object> t =
-                    (TreeMap<K,Object>) tm;
-                return t.descendingKeySpliterator();
-            }
-        }
-        @SuppressWarnings("unchecked") NavigableSubMap<K,?> sm =
-            (NavigableSubMap<K,?>) m;
-        return sm.keySpliterator();
-    }
-
-    final Spliterator<K> keySpliterator() {
-        return new KeySpliterator<K,V>(this, null, null, 0, -1, 0);
-    }
-
-    final Spliterator<K> descendingKeySpliterator() {
-        return new DescendingKeySpliterator<K,V>(this, null, null, 0, -2, 0);
-    }
-
-    /**
-     * Base class for spliterators.  Iteration starts at a given
-     * origin and continues up to but not including a given fence (or
-     * null for end).  At top-level, for ascending cases, the first
-     * split uses the root as left-fence/right-origin. From there,
-     * right-hand splits replace the current fence with its left
-     * child, also serving as origin for the split-off spliterator.
-     * Left-hands are symmetric. Descending versions place the origin
-     * at the end and invert ascending split rules.  This base class
-     * is non-commital about directionality, or whether the top-level
-     * spliterator covers the whole tree. This means that the actual
-     * split mechanics are located in subclasses. Some of the subclass
-     * trySplit methods are identical (except for return types), but
-     * not nicely factorable.
-     *
-     * Currently, subclass versions exist only for the full map
-     * (including descending keys via its descendingMap).  Others are
-     * possible but currently not worthwhile because submaps require
-     * O(n) computations to determine size, which substantially limits
-     * potential speed-ups of using custom Spliterators versus default
-     * mechanics.
-     *
-     * To boostrap initialization, external constructors use
-     * negative size estimates: -1 for ascend, -2 for descend.
-     */
-    static class TreeMapSpliterator<K,V> {
-        final TreeMap<K,V> tree;
-        TreeMap.Entry<K,V> current; // traverser; initially first node in range
-        TreeMap.Entry<K,V> fence;   // one past last, or null
-        int side;                   // 0: top, -1: is a left split, +1: right
-        int est;                    // size estimate (exact only for top-level)
-        int expectedModCount;       // for CME checks
-
-        TreeMapSpliterator(TreeMap<K,V> tree,
-                           TreeMap.Entry<K,V> origin, TreeMap.Entry<K,V> fence,
-                           int side, int est, int expectedModCount) {
-            this.tree = tree;
-            this.current = origin;
-            this.fence = fence;
-            this.side = side;
-            this.est = est;
-            this.expectedModCount = expectedModCount;
-        }
-
-        final int getEstimate() { // force initialization
-            int s; TreeMap<K,V> t;
-            if ((s = est) < 0) {
-                if ((t = tree) != null) {
-                    current = (s == -1) ? t.getFirstEntry() : t.getLastEntry();
-                    s = est = t.size;
-                    expectedModCount = t.modCount;
-                }
-                else
-                    s = est = 0;
-            }
-            return s;
-        }
-
-        public final long estimateSize() {
-            return (long)getEstimate();
-        }
-    }
-
-    static final class KeySpliterator<K,V>
-        extends TreeMapSpliterator<K,V>
-        implements Spliterator<K> {
-        KeySpliterator(TreeMap<K,V> tree,
-                       TreeMap.Entry<K,V> origin, TreeMap.Entry<K,V> fence,
-                       int side, int est, int expectedModCount) {
-            super(tree, origin, fence, side, est, expectedModCount);
-        }
-
-        public KeySpliterator<K,V> trySplit() {
-            if (est < 0)
-                getEstimate(); // force initialization
-            int d = side;
-            TreeMap.Entry<K,V> e = current, f = fence,
-                s = ((e == null || e == f) ? null :      // empty
-                     (d == 0)              ? tree.root : // was top
-                     (d >  0)              ? e.right :   // was right
-                     (d <  0 && f != null) ? f.left :    // was left
-                     null);
-            if (s != null && s != e && s != f &&
-                tree.compare(e.key, s.key) < 0) {        // e not already past s
-                side = 1;
-                return new KeySpliterator<>
-                    (tree, e, current = s, -1, est >>>= 1, expectedModCount);
-            }
-            return null;
-        }
-
-        public void forEachRemaining(Consumer<? super K> action) {
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            TreeMap.Entry<K,V> f = fence, e, p, pl;
-            if ((e = current) != null && e != f) {
-                current = f; // exhaust
-                do {
-                    action.accept(e.key);
-                    if ((p = e.right) != null) {
-                        while ((pl = p.left) != null)
-                            p = pl;
-                    }
-                    else {
-                        while ((p = e.parent) != null && e == p.right)
-                            e = p;
-                    }
-                } while ((e = p) != null && e != f);
-                if (tree.modCount != expectedModCount)
-                    throw new ConcurrentModificationException();
-            }
-        }
-
-        public boolean tryAdvance(Consumer<? super K> action) {
-            TreeMap.Entry<K,V> e;
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            if ((e = current) == null || e == fence)
-                return false;
-            current = successor(e);
-            action.accept(e.key);
-            if (tree.modCount != expectedModCount)
-                throw new ConcurrentModificationException();
-            return true;
-        }
-
-        public int characteristics() {
-            return (side == 0 ? Spliterator.SIZED : 0) |
-                Spliterator.DISTINCT | Spliterator.SORTED | Spliterator.ORDERED;
-        }
-
-        public final Comparator<? super K>  getComparator() {
-            return tree.comparator;
-        }
-
-    }
-
-    static final class DescendingKeySpliterator<K,V>
-        extends TreeMapSpliterator<K,V>
-        implements Spliterator<K> {
-        DescendingKeySpliterator(TreeMap<K,V> tree,
-                                 TreeMap.Entry<K,V> origin, TreeMap.Entry<K,V> fence,
-                                 int side, int est, int expectedModCount) {
-            super(tree, origin, fence, side, est, expectedModCount);
-        }
-
-        public DescendingKeySpliterator<K,V> trySplit() {
-            if (est < 0)
-                getEstimate(); // force initialization
-            int d = side;
-            TreeMap.Entry<K,V> e = current, f = fence,
-                    s = ((e == null || e == f) ? null :      // empty
-                         (d == 0)              ? tree.root : // was top
-                         (d <  0)              ? e.left :    // was left
-                         (d >  0 && f != null) ? f.right :   // was right
-                         null);
-            if (s != null && s != e && s != f &&
-                tree.compare(e.key, s.key) > 0) {       // e not already past s
-                side = 1;
-                return new DescendingKeySpliterator<>
-                        (tree, e, current = s, -1, est >>>= 1, expectedModCount);
-            }
-            return null;
-        }
-
-        public void forEachRemaining(Consumer<? super K> action) {
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            TreeMap.Entry<K,V> f = fence, e, p, pr;
-            if ((e = current) != null && e != f) {
-                current = f; // exhaust
-                do {
-                    action.accept(e.key);
-                    if ((p = e.left) != null) {
-                        while ((pr = p.right) != null)
-                            p = pr;
-                    }
-                    else {
-                        while ((p = e.parent) != null && e == p.left)
-                            e = p;
-                    }
-                } while ((e = p) != null && e != f);
-                if (tree.modCount != expectedModCount)
-                    throw new ConcurrentModificationException();
-            }
-        }
-
-        public boolean tryAdvance(Consumer<? super K> action) {
-            TreeMap.Entry<K,V> e;
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            if ((e = current) == null || e == fence)
-                return false;
-            current = predecessor(e);
-            action.accept(e.key);
-            if (tree.modCount != expectedModCount)
-                throw new ConcurrentModificationException();
-            return true;
-        }
-
-        public int characteristics() {
-            return (side == 0 ? Spliterator.SIZED : 0) |
-                Spliterator.DISTINCT | Spliterator.ORDERED;
-        }
-    }
-
-    static final class ValueSpliterator<K,V>
-            extends TreeMapSpliterator<K,V>
-            implements Spliterator<V> {
-        ValueSpliterator(TreeMap<K,V> tree,
-                         TreeMap.Entry<K,V> origin, TreeMap.Entry<K,V> fence,
-                         int side, int est, int expectedModCount) {
-            super(tree, origin, fence, side, est, expectedModCount);
-        }
-
-        public ValueSpliterator<K,V> trySplit() {
-            if (est < 0)
-                getEstimate(); // force initialization
-            int d = side;
-            TreeMap.Entry<K,V> e = current, f = fence,
-                    s = ((e == null || e == f) ? null :      // empty
-                         (d == 0)              ? tree.root : // was top
-                         (d >  0)              ? e.right :   // was right
-                         (d <  0 && f != null) ? f.left :    // was left
-                         null);
-            if (s != null && s != e && s != f &&
-                tree.compare(e.key, s.key) < 0) {        // e not already past s
-                side = 1;
-                return new ValueSpliterator<>
-                        (tree, e, current = s, -1, est >>>= 1, expectedModCount);
-            }
-            return null;
-        }
-
-        public void forEachRemaining(Consumer<? super V> action) {
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            TreeMap.Entry<K,V> f = fence, e, p, pl;
-            if ((e = current) != null && e != f) {
-                current = f; // exhaust
-                do {
-                    action.accept(e.value);
-                    if ((p = e.right) != null) {
-                        while ((pl = p.left) != null)
-                            p = pl;
-                    }
-                    else {
-                        while ((p = e.parent) != null && e == p.right)
-                            e = p;
-                    }
-                } while ((e = p) != null && e != f);
-                if (tree.modCount != expectedModCount)
-                    throw new ConcurrentModificationException();
-            }
-        }
-
-        public boolean tryAdvance(Consumer<? super V> action) {
-            TreeMap.Entry<K,V> e;
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            if ((e = current) == null || e == fence)
-                return false;
-            current = successor(e);
-            action.accept(e.value);
-            if (tree.modCount != expectedModCount)
-                throw new ConcurrentModificationException();
-            return true;
-        }
-
-        public int characteristics() {
-            return (side == 0 ? Spliterator.SIZED : 0) | Spliterator.ORDERED;
-        }
-    }
-
-    static final class EntrySpliterator<K,V>
-        extends TreeMapSpliterator<K,V>
-        implements Spliterator<Map.Entry<K,V>> {
-        EntrySpliterator(TreeMap<K,V> tree,
-                         TreeMap.Entry<K,V> origin, TreeMap.Entry<K,V> fence,
-                         int side, int est, int expectedModCount) {
-            super(tree, origin, fence, side, est, expectedModCount);
-        }
-
-        public EntrySpliterator<K,V> trySplit() {
-            if (est < 0)
-                getEstimate(); // force initialization
-            int d = side;
-            TreeMap.Entry<K,V> e = current, f = fence,
-                    s = ((e == null || e == f) ? null :      // empty
-                         (d == 0)              ? tree.root : // was top
-                         (d >  0)              ? e.right :   // was right
-                         (d <  0 && f != null) ? f.left :    // was left
-                         null);
-            if (s != null && s != e && s != f &&
-                tree.compare(e.key, s.key) < 0) {        // e not already past s
-                side = 1;
-                return new EntrySpliterator<>
-                        (tree, e, current = s, -1, est >>>= 1, expectedModCount);
-            }
-            return null;
-        }
-
-        public void forEachRemaining(Consumer<? super Map.Entry<K, V>> action) {
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            TreeMap.Entry<K,V> f = fence, e, p, pl;
-            if ((e = current) != null && e != f) {
-                current = f; // exhaust
-                do {
-                    action.accept(e);
-                    if ((p = e.right) != null) {
-                        while ((pl = p.left) != null)
-                            p = pl;
-                    }
-                    else {
-                        while ((p = e.parent) != null && e == p.right)
-                            e = p;
-                    }
-                } while ((e = p) != null && e != f);
-                if (tree.modCount != expectedModCount)
-                    throw new ConcurrentModificationException();
-            }
-        }
-
-        public boolean tryAdvance(Consumer<? super Map.Entry<K,V>> action) {
-            TreeMap.Entry<K,V> e;
-            if (action == null)
-                throw new NullPointerException();
-            if (est < 0)
-                getEstimate(); // force initialization
-            if ((e = current) == null || e == fence)
-                return false;
-            current = successor(e);
-            action.accept(e);
-            if (tree.modCount != expectedModCount)
-                throw new ConcurrentModificationException();
-            return true;
-        }
-
-        public int characteristics() {
-            return (side == 0 ? Spliterator.SIZED : 0) |
-                    Spliterator.DISTINCT | Spliterator.SORTED | Spliterator.ORDERED;
-        }
-
-        @Override
-        public Comparator<Map.Entry<K, V>> getComparator() {
-            // Adapt or create a key-based comparator
-            if (tree.comparator != null) {
-                return Map.Entry.comparingByKey(tree.comparator);
-            }
-            else {
-                return (Comparator<Map.Entry<K, V>> & Serializable) (e1, e2) -> {
-                    @SuppressWarnings("unchecked")
-                    Comparable<? super K> k1 = (Comparable<? super K>) e1.getKey();
-                    return k1.compareTo(e2.getKey());
-                };
-            }
-        }
     }
 }

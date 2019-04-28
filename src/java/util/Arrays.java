@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
  * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
  *
  *
@@ -25,23 +25,7 @@
 
 package java.util;
 
-import java.lang.reflect.Array;
-import java.util.concurrent.ForkJoinPool;
-import java.util.function.BinaryOperator;
-import java.util.function.Consumer;
-import java.util.function.DoubleBinaryOperator;
-import java.util.function.IntBinaryOperator;
-import java.util.function.IntFunction;
-import java.util.function.IntToDoubleFunction;
-import java.util.function.IntToLongFunction;
-import java.util.function.IntUnaryOperator;
-import java.util.function.LongBinaryOperator;
-import java.util.function.UnaryOperator;
-import java.util.stream.DoubleStream;
-import java.util.stream.IntStream;
-import java.util.stream.LongStream;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import java.lang.reflect.*;
 
 /**
  * This class contains various methods for manipulating arrays (such as
@@ -70,63 +54,11 @@ import java.util.stream.StreamSupport;
  */
 public class Arrays {
 
-    /**
-     * The minimum array length below which a parallel sorting
-     * algorithm will not further partition the sorting task. Using
-     * smaller sizes typically results in memory contention across
-     * tasks that makes parallel speedups unlikely.
-     */
-    private static final int MIN_ARRAY_SORT_GRAN = 1 << 13;
-
     // Suppresses default constructor, ensuring non-instantiability.
     private Arrays() {}
 
-    /**
-     * A comparator that implements the natural ordering of a group of
-     * mutually comparable elements. May be used when a supplied
-     * comparator is null. To simplify code-sharing within underlying
-     * implementations, the compare method only declares type Object
-     * for its second argument.
-     *
-     * Arrays class implementor's note: It is an empirical matter
-     * whether ComparableTimSort offers any performance benefit over
-     * TimSort used with this comparator.  If not, you are better off
-     * deleting or bypassing ComparableTimSort.  There is currently no
-     * empirical case for separating them for parallel sorting, so all
-     * public Object parallelSort methods use the same comparator
-     * based implementation.
-     */
-    static final class NaturalOrder implements Comparator<Object> {
-        @SuppressWarnings("unchecked")
-        public int compare(Object first, Object second) {
-            return ((Comparable<Object>)first).compareTo(second);
-        }
-        static final NaturalOrder INSTANCE = new NaturalOrder();
-    }
-
-    /**
-     * Checks that {@code fromIndex} and {@code toIndex} are in
-     * the range and throws an exception if they aren't.
-     */
-    private static void rangeCheck(int arrayLength, int fromIndex, int toIndex) {
-        if (fromIndex > toIndex) {
-            throw new IllegalArgumentException(
-                    "fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
-        }
-        if (fromIndex < 0) {
-            throw new ArrayIndexOutOfBoundsException(fromIndex);
-        }
-        if (toIndex > arrayLength) {
-            throw new ArrayIndexOutOfBoundsException(toIndex);
-        }
-    }
-
     /*
-     * Sorting methods. Note that all public "sort" methods take the
-     * same form: Performing argument checks if necessary, and then
-     * expanding arguments into those required for the internal
-     * implementation methods residing in other package-private
-     * classes (except for legacyMergeSort, included in this class).
+     * Sorting of primitive type arrays.
      */
 
     /**
@@ -141,7 +73,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(int[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -166,7 +98,7 @@ public class Arrays {
      */
     public static void sort(int[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
     }
 
     /**
@@ -181,7 +113,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(long[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -206,7 +138,7 @@ public class Arrays {
      */
     public static void sort(long[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
     }
 
     /**
@@ -221,7 +153,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(short[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -246,7 +178,7 @@ public class Arrays {
      */
     public static void sort(short[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
     }
 
     /**
@@ -261,7 +193,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(char[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -286,7 +218,7 @@ public class Arrays {
      */
     public static void sort(char[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
     }
 
     /**
@@ -301,7 +233,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(byte[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -349,7 +281,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(float[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -382,7 +314,7 @@ public class Arrays {
      */
     public static void sort(float[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
     }
 
     /**
@@ -405,7 +337,7 @@ public class Arrays {
      * @param a the array to be sorted
      */
     public static void sort(double[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
+        DualPivotQuicksort.sort(a);
     }
 
     /**
@@ -438,746 +370,7 @@ public class Arrays {
      */
     public static void sort(double[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(byte[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(byte[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(byte[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1);
-        else
-            new ArraysParallelSortHelpers.FJByte.Sorter
-                (null, a, new byte[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(byte[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(byte[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(byte[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
-        else
-            new ArraysParallelSortHelpers.FJByte.Sorter
-                (null, a, new byte[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(char[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(char[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(char[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJChar.Sorter
-                (null, a, new char[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-      @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(char[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(char[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(char[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJChar.Sorter
-                (null, a, new char[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(short[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(short[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(short[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJShort.Sorter
-                (null, a, new short[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(short[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(short[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(short[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJShort.Sorter
-                (null, a, new short[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(int[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(int[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(int[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJInt.Sorter
-                (null, a, new int[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(int[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(int[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(int[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJInt.Sorter
-                (null, a, new int[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(long[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(long[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(long[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJLong.Sorter
-                (null, a, new long[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(long[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(long[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(long[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJLong.Sorter
-                (null, a, new long[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>The {@code <} relation does not provide a total order on all float
-     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
-     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
-     * other value and all {@code Float.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(float[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(float[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(float[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJFloat.Sorter
-                (null, a, new float[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * <p>The {@code <} relation does not provide a total order on all float
-     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
-     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
-     * other value and all {@code Float.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(float[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(float[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(float[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJFloat.Sorter
-                (null, a, new float[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>The {@code <} relation does not provide a total order on all double
-     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
-     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
-     * other value and all {@code Double.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(double[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(double[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(double[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJDouble.Sorter
-                (null, a, new double[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * <p>The {@code <} relation does not provide a total order on all double
-     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
-     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
-     * other value and all {@code Double.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(double[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(double[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(double[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJDouble.Sorter
-                (null, a, new double[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array of objects into ascending order, according
-     * to the {@linkplain Comparable natural ordering} of its elements.
-     * All elements in the array must implement the {@link Comparable}
-     * interface.  Furthermore, all elements in the array must be
-     * <i>mutually comparable</i> (that is, {@code e1.compareTo(e2)} must
-     * not throw a {@code ClassCastException} for any elements {@code e1}
-     * and {@code e2} in the array).
-     *
-     * <p>This sort is guaranteed to be <i>stable</i>:  equal elements will
-     * not be reordered as a result of the sort.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(Object[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(Object[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param <T> the class of the objects to be sorted
-     * @param a the array to be sorted
-     *
-     * @throws ClassCastException if the array contains elements that are not
-     *         <i>mutually comparable</i> (for example, strings and integers)
-     * @throws IllegalArgumentException (optional) if the natural
-     *         ordering of the array elements is found to violate the
-     *         {@link Comparable} contract
-     *
-     * @since 1.8
-     */
-    @SuppressWarnings("unchecked")
-    public static <T extends Comparable<? super T>> void parallelSort(T[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            TimSort.sort(a, 0, n, NaturalOrder.INSTANCE, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJObject.Sorter<T>
-                (null, a,
-                 (T[])Array.newInstance(a.getClass().getComponentType(), n),
-                 0, n, 0, ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g, NaturalOrder.INSTANCE).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the specified array of objects into
-     * ascending order, according to the
-     * {@linkplain Comparable natural ordering} of its
-     * elements.  The range to be sorted extends from index
-     * {@code fromIndex}, inclusive, to index {@code toIndex}, exclusive.
-     * (If {@code fromIndex==toIndex}, the range to be sorted is empty.)  All
-     * elements in this range must implement the {@link Comparable}
-     * interface.  Furthermore, all elements in this range must be <i>mutually
-     * comparable</i> (that is, {@code e1.compareTo(e2)} must not throw a
-     * {@code ClassCastException} for any elements {@code e1} and
-     * {@code e2} in the array).
-     *
-     * <p>This sort is guaranteed to be <i>stable</i>:  equal elements will
-     * not be reordered as a result of the sort.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(Object[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(Object[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param <T> the class of the objects to be sorted
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element (inclusive) to be
-     *        sorted
-     * @param toIndex the index of the last element (exclusive) to be sorted
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex} or
-     *         (optional) if the natural ordering of the array elements is
-     *         found to violate the {@link Comparable} contract
-     * @throws ArrayIndexOutOfBoundsException if {@code fromIndex < 0} or
-     *         {@code toIndex > a.length}
-     * @throws ClassCastException if the array contains elements that are
-     *         not <i>mutually comparable</i> (for example, strings and
-     *         integers).
-     *
-     * @since 1.8
-     */
-    @SuppressWarnings("unchecked")
-    public static <T extends Comparable<? super T>>
-    void parallelSort(T[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            TimSort.sort(a, fromIndex, toIndex, NaturalOrder.INSTANCE, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJObject.Sorter<T>
-                (null, a,
-                 (T[])Array.newInstance(a.getClass().getComponentType(), n),
-                 fromIndex, n, 0, ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g, NaturalOrder.INSTANCE).invoke();
-    }
-
-    /**
-     * Sorts the specified array of objects according to the order induced by
-     * the specified comparator.  All elements in the array must be
-     * <i>mutually comparable</i> by the specified comparator (that is,
-     * {@code c.compare(e1, e2)} must not throw a {@code ClassCastException}
-     * for any elements {@code e1} and {@code e2} in the array).
-     *
-     * <p>This sort is guaranteed to be <i>stable</i>:  equal elements will
-     * not be reordered as a result of the sort.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(Object[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(Object[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param <T> the class of the objects to be sorted
-     * @param a the array to be sorted
-     * @param cmp the comparator to determine the order of the array.  A
-     *        {@code null} value indicates that the elements'
-     *        {@linkplain Comparable natural ordering} should be used.
-     * @throws ClassCastException if the array contains elements that are
-     *         not <i>mutually comparable</i> using the specified comparator
-     * @throws IllegalArgumentException (optional) if the comparator is
-     *         found to violate the {@link java.util.Comparator} contract
-     *
-     * @since 1.8
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> void parallelSort(T[] a, Comparator<? super T> cmp) {
-        if (cmp == null)
-            cmp = NaturalOrder.INSTANCE;
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            TimSort.sort(a, 0, n, cmp, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJObject.Sorter<T>
-                (null, a,
-                 (T[])Array.newInstance(a.getClass().getComponentType(), n),
-                 0, n, 0, ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g, cmp).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the specified array of objects according
-     * to the order induced by the specified comparator.  The range to be
-     * sorted extends from index {@code fromIndex}, inclusive, to index
-     * {@code toIndex}, exclusive.  (If {@code fromIndex==toIndex}, the
-     * range to be sorted is empty.)  All elements in the range must be
-     * <i>mutually comparable</i> by the specified comparator (that is,
-     * {@code c.compare(e1, e2)} must not throw a {@code ClassCastException}
-     * for any elements {@code e1} and {@code e2} in the range).
-     *
-     * <p>This sort is guaranteed to be <i>stable</i>:  equal elements will
-     * not be reordered as a result of the sort.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(Object[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(Object[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param <T> the class of the objects to be sorted
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element (inclusive) to be
-     *        sorted
-     * @param toIndex the index of the last element (exclusive) to be sorted
-     * @param cmp the comparator to determine the order of the array.  A
-     *        {@code null} value indicates that the elements'
-     *        {@linkplain Comparable natural ordering} should be used.
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex} or
-     *         (optional) if the natural ordering of the array elements is
-     *         found to violate the {@link Comparable} contract
-     * @throws ArrayIndexOutOfBoundsException if {@code fromIndex < 0} or
-     *         {@code toIndex > a.length}
-     * @throws ClassCastException if the array contains elements that are
-     *         not <i>mutually comparable</i> (for example, strings and
-     *         integers).
-     *
-     * @since 1.8
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> void parallelSort(T[] a, int fromIndex, int toIndex,
-                                        Comparator<? super T> cmp) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        if (cmp == null)
-            cmp = NaturalOrder.INSTANCE;
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            TimSort.sort(a, fromIndex, toIndex, cmp, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJObject.Sorter<T>
-                (null, a,
-                 (T[])Array.newInstance(a.getClass().getComponentType(), n),
-                 fromIndex, n, 0, ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g, cmp).invoke();
+        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
     }
 
     /*
@@ -1192,10 +385,43 @@ public class Arrays {
      */
     static final class LegacyMergeSort {
         private static final boolean userRequested =
-            java.security.AccessController.doPrivileged(
-                new sun.security.action.GetBooleanAction(
-                    "java.util.Arrays.useLegacyMergeSort")).booleanValue();
+                java.security.AccessController.doPrivileged(
+                        new sun.security.action.GetBooleanAction(
+                                "java.util.Arrays.useLegacyMergeSort")).booleanValue();
     }
+
+    /*
+     * If this platform has an optimizing VM, check whether ComparableTimSort
+     * offers any performance benefit over TimSort in conjunction with a
+     * comparator that returns:
+     *    {@code ((Comparable)first).compareTo(Second)}.
+     * If not, you are better off deleting ComparableTimSort to
+     * eliminate the code duplication.  In other words, the commented
+     * out code below is the preferable implementation for sorting
+     * arrays of Comparables if it offers sufficient performance.
+     */
+
+//    /**
+//     * A comparator that implements the natural ordering of a group of
+//     * mutually comparable elements.  Using this comparator saves us
+//     * from duplicating most of the code in this file (one version for
+//     * Comparables, one for explicit Comparators).
+//     */
+//    private static final Comparator<Object> NATURAL_ORDER =
+//            new Comparator<Object>() {
+//        @SuppressWarnings("unchecked")
+//        public int compare(Object first, Object second) {
+//            return ((Comparable<Object>)first).compareTo(second);
+//        }
+//    };
+//
+//    public static void sort(Object[] a) {
+//        sort(a, 0, a.length, NATURAL_ORDER);
+//    }
+//
+//    public static void sort(Object[] a, int fromIndex, int toIndex) {
+//        sort(a, fromIndex, toIndex, NATURAL_ORDER);
+//    }
 
     /**
      * Sorts the specified array of objects into ascending order, according
@@ -1227,7 +453,7 @@ public class Arrays {
      *
      * <p>The implementation was adapted from Tim Peters's list sort for Python
      * (<a href="http://svn.python.org/projects/python/trunk/Objects/listsort.txt">
-     * TimSort</a>).  It uses techniques from Peter McIlroy's "Optimistic
+     * TimSort</a>).  It uses techiques from Peter McIlroy's "Optimistic
      * Sorting and Information Theoretic Complexity", in Proceedings of the
      * Fourth Annual ACM-SIAM Symposium on Discrete Algorithms, pp 467-474,
      * January 1993.
@@ -1243,7 +469,7 @@ public class Arrays {
         if (LegacyMergeSort.userRequested)
             legacyMergeSort(a);
         else
-            ComparableTimSort.sort(a, 0, a.length, null, 0, 0);
+            ComparableTimSort.sort(a);
     }
 
     /** To be removed in a future release. */
@@ -1286,7 +512,7 @@ public class Arrays {
      *
      * <p>The implementation was adapted from Tim Peters's list sort for Python
      * (<a href="http://svn.python.org/projects/python/trunk/Objects/listsort.txt">
-     * TimSort</a>).  It uses techniques from Peter McIlroy's "Optimistic
+     * TimSort</a>).  It uses techiques from Peter McIlroy's "Optimistic
      * Sorting and Information Theoretic Complexity", in Proceedings of the
      * Fourth Annual ACM-SIAM Symposium on Discrete Algorithms, pp 467-474,
      * January 1993.
@@ -1305,16 +531,16 @@ public class Arrays {
      *         integers).
      */
     public static void sort(Object[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
         if (LegacyMergeSort.userRequested)
             legacyMergeSort(a, fromIndex, toIndex);
         else
-            ComparableTimSort.sort(a, fromIndex, toIndex, null, 0, 0);
+            ComparableTimSort.sort(a, fromIndex, toIndex);
     }
 
     /** To be removed in a future release. */
     private static void legacyMergeSort(Object[] a,
                                         int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
         Object[] aux = copyOfRange(a, fromIndex, toIndex);
         mergeSort(aux, a, fromIndex, toIndex, -fromIndex);
     }
@@ -1334,7 +560,6 @@ public class Arrays {
      * off is the offset to generate corresponding low, high in src
      * To be removed in a future release.
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private static void mergeSort(Object[] src,
                                   Object[] dest,
                                   int low,
@@ -1346,7 +571,7 @@ public class Arrays {
         if (length < INSERTIONSORT_THRESHOLD) {
             for (int i=low; i<high; i++)
                 for (int j=i; j>low &&
-                         ((Comparable) dest[j-1]).compareTo(dest[j])>0; j--)
+                        ((Comparable) dest[j-1]).compareTo(dest[j])>0; j--)
                     swap(dest, j, j-1);
             return;
         }
@@ -1413,12 +638,11 @@ public class Arrays {
      *
      * <p>The implementation was adapted from Tim Peters's list sort for Python
      * (<a href="http://svn.python.org/projects/python/trunk/Objects/listsort.txt">
-     * TimSort</a>).  It uses techniques from Peter McIlroy's "Optimistic
+     * TimSort</a>).  It uses techiques from Peter McIlroy's "Optimistic
      * Sorting and Information Theoretic Complexity", in Proceedings of the
      * Fourth Annual ACM-SIAM Symposium on Discrete Algorithms, pp 467-474,
      * January 1993.
      *
-     * @param <T> the class of the objects to be sorted
      * @param a the array to be sorted
      * @param c the comparator to determine the order of the array.  A
      *        {@code null} value indicates that the elements'
@@ -1429,14 +653,10 @@ public class Arrays {
      *         found to violate the {@link Comparator} contract
      */
     public static <T> void sort(T[] a, Comparator<? super T> c) {
-        if (c == null) {
-            sort(a);
-        } else {
-            if (LegacyMergeSort.userRequested)
-                legacyMergeSort(a, c);
-            else
-                TimSort.sort(a, 0, a.length, c, null, 0, 0);
-        }
+        if (LegacyMergeSort.userRequested)
+            legacyMergeSort(a, c);
+        else
+            TimSort.sort(a, c);
     }
 
     /** To be removed in a future release. */
@@ -1479,12 +699,11 @@ public class Arrays {
      *
      * <p>The implementation was adapted from Tim Peters's list sort for Python
      * (<a href="http://svn.python.org/projects/python/trunk/Objects/listsort.txt">
-     * TimSort</a>).  It uses techniques from Peter McIlroy's "Optimistic
+     * TimSort</a>).  It uses techiques from Peter McIlroy's "Optimistic
      * Sorting and Information Theoretic Complexity", in Proceedings of the
      * Fourth Annual ACM-SIAM Symposium on Discrete Algorithms, pp 467-474,
      * January 1993.
      *
-     * @param <T> the class of the objects to be sorted
      * @param a the array to be sorted
      * @param fromIndex the index of the first element (inclusive) to be
      *        sorted
@@ -1502,20 +721,16 @@ public class Arrays {
      */
     public static <T> void sort(T[] a, int fromIndex, int toIndex,
                                 Comparator<? super T> c) {
-        if (c == null) {
-            sort(a, fromIndex, toIndex);
-        } else {
-            rangeCheck(a.length, fromIndex, toIndex);
-            if (LegacyMergeSort.userRequested)
-                legacyMergeSort(a, fromIndex, toIndex, c);
-            else
-                TimSort.sort(a, fromIndex, toIndex, c, null, 0, 0);
-        }
+        if (LegacyMergeSort.userRequested)
+            legacyMergeSort(a, fromIndex, toIndex, c);
+        else
+            TimSort.sort(a, fromIndex, toIndex, c);
     }
 
     /** To be removed in a future release. */
     private static <T> void legacyMergeSort(T[] a, int fromIndex, int toIndex,
                                             Comparator<? super T> c) {
+        rangeCheck(a.length, fromIndex, toIndex);
         T[] aux = copyOfRange(a, fromIndex, toIndex);
         if (c==null)
             mergeSort(aux, a, fromIndex, toIndex, -fromIndex);
@@ -1531,7 +746,6 @@ public class Arrays {
      * off is the offset into src corresponding to low in dest
      * To be removed in a future release.
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private static void mergeSort(Object[] src,
                                   Object[] dest,
                                   int low, int high, int off,
@@ -1558,8 +772,8 @@ public class Arrays {
         // If list is already sorted, just copy from src to dest.  This is an
         // optimization that results in faster sorts for nearly ordered lists.
         if (c.compare(src[mid-1], src[mid]) <= 0) {
-           System.arraycopy(src, low, dest, destLow, length);
-           return;
+            System.arraycopy(src, low, dest, destLow, length);
+            return;
         }
 
         // Merge sorted halves (now in src) into dest
@@ -1571,191 +785,21 @@ public class Arrays {
         }
     }
 
-    // Parallel prefix
-
     /**
-     * Cumulates, in parallel, each element of the given array in place,
-     * using the supplied function. For example if the array initially
-     * holds {@code [2, 1, 0, 3]} and the operation performs addition,
-     * then upon return the array holds {@code [2, 3, 3, 6]}.
-     * Parallel prefix computation is usually more efficient than
-     * sequential loops for large arrays.
-     *
-     * @param <T> the class of the objects in the array
-     * @param array the array, which is modified in-place by this method
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
+     * Checks that {@code fromIndex} and {@code toIndex} are in
+     * the range and throws an appropriate exception, if they aren't.
      */
-    public static <T> void parallelPrefix(T[] array, BinaryOperator<T> op) {
-        Objects.requireNonNull(op);
-        if (array.length > 0)
-            new ArrayPrefixHelpers.CumulateTask<>
-                    (null, op, array, 0, array.length).invoke();
-    }
-
-    /**
-     * Performs {@link #parallelPrefix(Object[], BinaryOperator)}
-     * for the given subrange of the array.
-     *
-     * @param <T> the class of the objects in the array
-     * @param array the array
-     * @param fromIndex the index of the first element, inclusive
-     * @param toIndex the index of the last element, exclusive
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > array.length}
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static <T> void parallelPrefix(T[] array, int fromIndex,
-                                          int toIndex, BinaryOperator<T> op) {
-        Objects.requireNonNull(op);
-        rangeCheck(array.length, fromIndex, toIndex);
-        if (fromIndex < toIndex)
-            new ArrayPrefixHelpers.CumulateTask<>
-                    (null, op, array, fromIndex, toIndex).invoke();
-    }
-
-    /**
-     * Cumulates, in parallel, each element of the given array in place,
-     * using the supplied function. For example if the array initially
-     * holds {@code [2, 1, 0, 3]} and the operation performs addition,
-     * then upon return the array holds {@code [2, 3, 3, 6]}.
-     * Parallel prefix computation is usually more efficient than
-     * sequential loops for large arrays.
-     *
-     * @param array the array, which is modified in-place by this method
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static void parallelPrefix(long[] array, LongBinaryOperator op) {
-        Objects.requireNonNull(op);
-        if (array.length > 0)
-            new ArrayPrefixHelpers.LongCumulateTask
-                    (null, op, array, 0, array.length).invoke();
-    }
-
-    /**
-     * Performs {@link #parallelPrefix(long[], LongBinaryOperator)}
-     * for the given subrange of the array.
-     *
-     * @param array the array
-     * @param fromIndex the index of the first element, inclusive
-     * @param toIndex the index of the last element, exclusive
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > array.length}
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static void parallelPrefix(long[] array, int fromIndex,
-                                      int toIndex, LongBinaryOperator op) {
-        Objects.requireNonNull(op);
-        rangeCheck(array.length, fromIndex, toIndex);
-        if (fromIndex < toIndex)
-            new ArrayPrefixHelpers.LongCumulateTask
-                    (null, op, array, fromIndex, toIndex).invoke();
-    }
-
-    /**
-     * Cumulates, in parallel, each element of the given array in place,
-     * using the supplied function. For example if the array initially
-     * holds {@code [2.0, 1.0, 0.0, 3.0]} and the operation performs addition,
-     * then upon return the array holds {@code [2.0, 3.0, 3.0, 6.0]}.
-     * Parallel prefix computation is usually more efficient than
-     * sequential loops for large arrays.
-     *
-     * <p> Because floating-point operations may not be strictly associative,
-     * the returned result may not be identical to the value that would be
-     * obtained if the operation was performed sequentially.
-     *
-     * @param array the array, which is modified in-place by this method
-     * @param op a side-effect-free function to perform the cumulation
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static void parallelPrefix(double[] array, DoubleBinaryOperator op) {
-        Objects.requireNonNull(op);
-        if (array.length > 0)
-            new ArrayPrefixHelpers.DoubleCumulateTask
-                    (null, op, array, 0, array.length).invoke();
-    }
-
-    /**
-     * Performs {@link #parallelPrefix(double[], DoubleBinaryOperator)}
-     * for the given subrange of the array.
-     *
-     * @param array the array
-     * @param fromIndex the index of the first element, inclusive
-     * @param toIndex the index of the last element, exclusive
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > array.length}
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static void parallelPrefix(double[] array, int fromIndex,
-                                      int toIndex, DoubleBinaryOperator op) {
-        Objects.requireNonNull(op);
-        rangeCheck(array.length, fromIndex, toIndex);
-        if (fromIndex < toIndex)
-            new ArrayPrefixHelpers.DoubleCumulateTask
-                    (null, op, array, fromIndex, toIndex).invoke();
-    }
-
-    /**
-     * Cumulates, in parallel, each element of the given array in place,
-     * using the supplied function. For example if the array initially
-     * holds {@code [2, 1, 0, 3]} and the operation performs addition,
-     * then upon return the array holds {@code [2, 3, 3, 6]}.
-     * Parallel prefix computation is usually more efficient than
-     * sequential loops for large arrays.
-     *
-     * @param array the array, which is modified in-place by this method
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static void parallelPrefix(int[] array, IntBinaryOperator op) {
-        Objects.requireNonNull(op);
-        if (array.length > 0)
-            new ArrayPrefixHelpers.IntCumulateTask
-                    (null, op, array, 0, array.length).invoke();
-    }
-
-    /**
-     * Performs {@link #parallelPrefix(int[], IntBinaryOperator)}
-     * for the given subrange of the array.
-     *
-     * @param array the array
-     * @param fromIndex the index of the first element, inclusive
-     * @param toIndex the index of the last element, exclusive
-     * @param op a side-effect-free, associative function to perform the
-     * cumulation
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > array.length}
-     * @throws NullPointerException if the specified array or function is null
-     * @since 1.8
-     */
-    public static void parallelPrefix(int[] array, int fromIndex,
-                                      int toIndex, IntBinaryOperator op) {
-        Objects.requireNonNull(op);
-        rangeCheck(array.length, fromIndex, toIndex);
-        if (fromIndex < toIndex)
-            new ArrayPrefixHelpers.IntCumulateTask
-                    (null, op, array, fromIndex, toIndex).invoke();
+    private static void rangeCheck(int length, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex) {
+            throw new IllegalArgumentException(
+                    "fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
+        }
+        if (fromIndex < 0) {
+            throw new ArrayIndexOutOfBoundsException(fromIndex);
+        }
+        if (toIndex > length) {
+            throw new ArrayIndexOutOfBoundsException(toIndex);
+        }
     }
 
     // Searching
@@ -2433,9 +1477,7 @@ public class Arrays {
 
         while (low <= high) {
             int mid = (low + high) >>> 1;
-            @SuppressWarnings("rawtypes")
             Comparable midVal = (Comparable)a[mid];
-            @SuppressWarnings("unchecked")
             int cmp = midVal.compareTo(key);
 
             if (cmp < 0)
@@ -2459,7 +1501,6 @@ public class Arrays {
      * elements equal to the specified object, there is no guarantee which one
      * will be found.
      *
-     * @param <T> the class of the objects in the array
      * @param a the array to be searched
      * @param key the value to be searched for
      * @param c the comparator by which the array is ordered.  A
@@ -2495,7 +1536,6 @@ public class Arrays {
      * If the range contains multiple elements equal to the specified object,
      * there is no guarantee which one will be found.
      *
-     * @param <T> the class of the objects in the array
      * @param a the array to be searched
      * @param fromIndex the index of the first element (inclusive) to be
      *          searched
@@ -3167,7 +2207,6 @@ public class Arrays {
      * is greater than that of the original array.
      * The resulting array is of exactly the same class as the original array.
      *
-     * @param <T> the class of the objects in the array
      * @param original the array to be copied
      * @param newLength the length of the copy to be returned
      * @return a copy of the original array, truncated or padded with nulls
@@ -3176,7 +2215,6 @@ public class Arrays {
      * @throws NullPointerException if <tt>original</tt> is null
      * @since 1.6
      */
-    @SuppressWarnings("unchecked")
     public static <T> T[] copyOf(T[] original, int newLength) {
         return (T[]) copyOf(original, newLength, original.getClass());
     }
@@ -3191,8 +2229,6 @@ public class Arrays {
      * is greater than that of the original array.
      * The resulting array is of the class <tt>newType</tt>.
      *
-     * @param <U> the class of the objects in the original array
-     * @param <T> the class of the objects in the returned array
      * @param original the array to be copied
      * @param newLength the length of the copy to be returned
      * @param newType the class of the copy to be returned
@@ -3206,12 +2242,11 @@ public class Arrays {
      * @since 1.6
      */
     public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
-        @SuppressWarnings("unchecked")
         T[] copy = ((Object)newType == (Object)Object[].class)
-            ? (T[]) new Object[newLength]
-            : (T[]) Array.newInstance(newType.getComponentType(), newLength);
+                ? (T[]) new Object[newLength]
+                : (T[]) Array.newInstance(newType.getComponentType(), newLength);
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3235,7 +2270,7 @@ public class Arrays {
     public static byte[] copyOf(byte[] original, int newLength) {
         byte[] copy = new byte[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3259,7 +2294,7 @@ public class Arrays {
     public static short[] copyOf(short[] original, int newLength) {
         short[] copy = new short[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3283,7 +2318,7 @@ public class Arrays {
     public static int[] copyOf(int[] original, int newLength) {
         int[] copy = new int[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3307,7 +2342,7 @@ public class Arrays {
     public static long[] copyOf(long[] original, int newLength) {
         long[] copy = new long[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3331,7 +2366,7 @@ public class Arrays {
     public static char[] copyOf(char[] original, int newLength) {
         char[] copy = new char[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3355,7 +2390,7 @@ public class Arrays {
     public static float[] copyOf(float[] original, int newLength) {
         float[] copy = new float[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3379,7 +2414,7 @@ public class Arrays {
     public static double[] copyOf(double[] original, int newLength) {
         double[] copy = new double[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3403,7 +2438,7 @@ public class Arrays {
     public static boolean[] copyOf(boolean[] original, int newLength) {
         boolean[] copy = new boolean[newLength];
         System.arraycopy(original, 0, copy, 0,
-                         Math.min(original.length, newLength));
+                Math.min(original.length, newLength));
         return copy;
     }
 
@@ -3423,7 +2458,6 @@ public class Arrays {
      * <p>
      * The resulting array is of exactly the same class as the original array.
      *
-     * @param <T> the class of the objects in the array
      * @param original the array from which a range is to be copied
      * @param from the initial index of the range to be copied, inclusive
      * @param to the final index of the range to be copied, exclusive.
@@ -3436,9 +2470,8 @@ public class Arrays {
      * @throws NullPointerException if <tt>original</tt> is null
      * @since 1.6
      */
-    @SuppressWarnings("unchecked")
     public static <T> T[] copyOfRange(T[] original, int from, int to) {
-        return copyOfRange(original, from, to, (Class<? extends T[]>) original.getClass());
+        return copyOfRange(original, from, to, (Class<T[]>) original.getClass());
     }
 
     /**
@@ -3456,8 +2489,6 @@ public class Arrays {
      * of the returned array will be <tt>to - from</tt>.
      * The resulting array is of the class <tt>newType</tt>.
      *
-     * @param <U> the class of the objects in the original array
-     * @param <T> the class of the objects in the returned array
      * @param original the array from which a range is to be copied
      * @param from the initial index of the range to be copied, inclusive
      * @param to the final index of the range to be copied, exclusive.
@@ -3478,12 +2509,11 @@ public class Arrays {
         int newLength = to - from;
         if (newLength < 0)
             throw new IllegalArgumentException(from + " > " + to);
-        @SuppressWarnings("unchecked")
         T[] copy = ((Object)newType == (Object)Object[].class)
-            ? (T[]) new Object[newLength]
-            : (T[]) Array.newInstance(newType.getComponentType(), newLength);
+                ? (T[]) new Object[newLength]
+                : (T[]) Array.newInstance(newType.getComponentType(), newLength);
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3519,7 +2549,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         byte[] copy = new byte[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3555,7 +2585,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         short[] copy = new short[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3591,7 +2621,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         int[] copy = new int[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3627,7 +2657,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         long[] copy = new long[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3663,7 +2693,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         char[] copy = new char[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3699,7 +2729,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         float[] copy = new float[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3735,7 +2765,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         double[] copy = new double[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3771,7 +2801,7 @@ public class Arrays {
             throw new IllegalArgumentException(from + " > " + to);
         boolean[] copy = new boolean[newLength];
         System.arraycopy(original, from, copy, 0,
-                         Math.min(original.length - from, newLength));
+                Math.min(original.length - from, newLength));
         return copy;
     }
 
@@ -3790,12 +2820,16 @@ public class Arrays {
      *     List&lt;String&gt; stooges = Arrays.asList("Larry", "Moe", "Curly");
      * </pre>
      *
-     * @param <T> the class of the objects in the array
      * @param a the array by which the list will be backed
      * @return a list view of the specified array
      */
+    /**
+     * 这里的ArrayList是一个Arrays的内部类，不能改变数组大小
+     * @param a
+     * @param <T>
+     * @return
+     */
     @SafeVarargs
-    @SuppressWarnings("varargs")
     public static <T> List<T> asList(T... a) {
         return new ArrayList<>(a);
     }
@@ -3803,96 +2837,67 @@ public class Arrays {
     /**
      * @serial include
      */
+    /**
+     * 注意，这里的ArrayList是一个Arrays的内部类
+     * @param <E>
+     */
     private static class ArrayList<E> extends AbstractList<E>
-        implements RandomAccess, java.io.Serializable
+            implements RandomAccess, java.io.Serializable
     {
         private static final long serialVersionUID = -2764017481108945198L;
+        //final修饰不准修改其引用
         private final E[] a;
 
         ArrayList(E[] array) {
-            a = Objects.requireNonNull(array);
+            if (array==null)
+                throw new NullPointerException();
+            a = array;
         }
 
-        @Override
         public int size() {
             return a.length;
         }
 
-        @Override
         public Object[] toArray() {
             return a.clone();
         }
 
-        @Override
-        @SuppressWarnings("unchecked")
         public <T> T[] toArray(T[] a) {
             int size = size();
             if (a.length < size)
                 return Arrays.copyOf(this.a, size,
-                                     (Class<? extends T[]>) a.getClass());
+                        (Class<? extends T[]>) a.getClass());
             System.arraycopy(this.a, 0, a, 0, size);
             if (a.length > size)
                 a[size] = null;
             return a;
         }
 
-        @Override
         public E get(int index) {
             return a[index];
         }
 
-        @Override
         public E set(int index, E element) {
             E oldValue = a[index];
             a[index] = element;
             return oldValue;
         }
 
-        @Override
         public int indexOf(Object o) {
-            E[] a = this.a;
-            if (o == null) {
-                for (int i = 0; i < a.length; i++)
-                    if (a[i] == null)
+            if (o==null) {
+                for (int i=0; i<a.length; i++)
+                    if (a[i]==null)
                         return i;
             } else {
-                for (int i = 0; i < a.length; i++)
+                for (int i=0; i<a.length; i++)
                     if (o.equals(a[i]))
                         return i;
             }
             return -1;
         }
 
-        @Override
         public boolean contains(Object o) {
             return indexOf(o) != -1;
-        }
-
-        @Override
-        public Spliterator<E> spliterator() {
-            return Spliterators.spliterator(a, Spliterator.ORDERED);
-        }
-
-        @Override
-        public void forEach(Consumer<? super E> action) {
-            Objects.requireNonNull(action);
-            for (E e : a) {
-                action.accept(e);
-            }
-        }
-
-        @Override
-        public void replaceAll(UnaryOperator<E> operator) {
-            Objects.requireNonNull(operator);
-            E[] a = this.a;
-            for (int i = 0; i < a.length; i++) {
-                a[i] = operator.apply(a[i]);
-            }
-        }
-
-        @Override
-        public void sort(Comparator<? super E> c) {
-            Arrays.sort(a, c);
         }
     }
 
@@ -4640,7 +3645,7 @@ public class Arrays {
             if (element == null) {
                 buf.append("null");
             } else {
-                Class<?> eClass = element.getClass();
+                Class eClass = element.getClass();
 
                 if (eClass.isArray()) {
                     if (eClass == byte[].class)
@@ -4675,441 +3680,5 @@ public class Arrays {
         }
         buf.append(']');
         dejaVu.remove(a);
-    }
-
-
-    /**
-     * Set all elements of the specified array, using the provided
-     * generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, it is relayed to
-     * the caller and the array is left in an indeterminate state.
-     *
-     * @param <T> type of elements of the array
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static <T> void setAll(T[] array, IntFunction<? extends T> generator) {
-        Objects.requireNonNull(generator);
-        for (int i = 0; i < array.length; i++)
-            array[i] = generator.apply(i);
-    }
-
-    /**
-     * Set all elements of the specified array, in parallel, using the
-     * provided generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, an unchecked exception
-     * is thrown from {@code parallelSetAll} and the array is left in an
-     * indeterminate state.
-     *
-     * @param <T> type of elements of the array
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static <T> void parallelSetAll(T[] array, IntFunction<? extends T> generator) {
-        Objects.requireNonNull(generator);
-        IntStream.range(0, array.length).parallel().forEach(i -> { array[i] = generator.apply(i); });
-    }
-
-    /**
-     * Set all elements of the specified array, using the provided
-     * generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, it is relayed to
-     * the caller and the array is left in an indeterminate state.
-     *
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static void setAll(int[] array, IntUnaryOperator generator) {
-        Objects.requireNonNull(generator);
-        for (int i = 0; i < array.length; i++)
-            array[i] = generator.applyAsInt(i);
-    }
-
-    /**
-     * Set all elements of the specified array, in parallel, using the
-     * provided generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, an unchecked exception
-     * is thrown from {@code parallelSetAll} and the array is left in an
-     * indeterminate state.
-     *
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     * value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static void parallelSetAll(int[] array, IntUnaryOperator generator) {
-        Objects.requireNonNull(generator);
-        IntStream.range(0, array.length).parallel().forEach(i -> { array[i] = generator.applyAsInt(i); });
-    }
-
-    /**
-     * Set all elements of the specified array, using the provided
-     * generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, it is relayed to
-     * the caller and the array is left in an indeterminate state.
-     *
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static void setAll(long[] array, IntToLongFunction generator) {
-        Objects.requireNonNull(generator);
-        for (int i = 0; i < array.length; i++)
-            array[i] = generator.applyAsLong(i);
-    }
-
-    /**
-     * Set all elements of the specified array, in parallel, using the
-     * provided generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, an unchecked exception
-     * is thrown from {@code parallelSetAll} and the array is left in an
-     * indeterminate state.
-     *
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static void parallelSetAll(long[] array, IntToLongFunction generator) {
-        Objects.requireNonNull(generator);
-        IntStream.range(0, array.length).parallel().forEach(i -> { array[i] = generator.applyAsLong(i); });
-    }
-
-    /**
-     * Set all elements of the specified array, using the provided
-     * generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, it is relayed to
-     * the caller and the array is left in an indeterminate state.
-     *
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static void setAll(double[] array, IntToDoubleFunction generator) {
-        Objects.requireNonNull(generator);
-        for (int i = 0; i < array.length; i++)
-            array[i] = generator.applyAsDouble(i);
-    }
-
-    /**
-     * Set all elements of the specified array, in parallel, using the
-     * provided generator function to compute each element.
-     *
-     * <p>If the generator function throws an exception, an unchecked exception
-     * is thrown from {@code parallelSetAll} and the array is left in an
-     * indeterminate state.
-     *
-     * @param array array to be initialized
-     * @param generator a function accepting an index and producing the desired
-     *        value for that position
-     * @throws NullPointerException if the generator is null
-     * @since 1.8
-     */
-    public static void parallelSetAll(double[] array, IntToDoubleFunction generator) {
-        Objects.requireNonNull(generator);
-        IntStream.range(0, array.length).parallel().forEach(i -> { array[i] = generator.applyAsDouble(i); });
-    }
-
-    /**
-     * Returns a {@link Spliterator} covering all of the specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param <T> type of elements
-     * @param array the array, assumed to be unmodified during use
-     * @return a spliterator for the array elements
-     * @since 1.8
-     */
-    public static <T> Spliterator<T> spliterator(T[] array) {
-        return Spliterators.spliterator(array,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator} covering the specified range of the
-     * specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param <T> type of elements
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a spliterator for the array elements
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static <T> Spliterator<T> spliterator(T[] array, int startInclusive, int endExclusive) {
-        return Spliterators.spliterator(array, startInclusive, endExclusive,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator.OfInt} covering all of the specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @return a spliterator for the array elements
-     * @since 1.8
-     */
-    public static Spliterator.OfInt spliterator(int[] array) {
-        return Spliterators.spliterator(array,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator.OfInt} covering the specified range of the
-     * specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a spliterator for the array elements
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static Spliterator.OfInt spliterator(int[] array, int startInclusive, int endExclusive) {
-        return Spliterators.spliterator(array, startInclusive, endExclusive,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator.OfLong} covering all of the specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @return the spliterator for the array elements
-     * @since 1.8
-     */
-    public static Spliterator.OfLong spliterator(long[] array) {
-        return Spliterators.spliterator(array,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator.OfLong} covering the specified range of the
-     * specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a spliterator for the array elements
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static Spliterator.OfLong spliterator(long[] array, int startInclusive, int endExclusive) {
-        return Spliterators.spliterator(array, startInclusive, endExclusive,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator.OfDouble} covering all of the specified
-     * array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @return a spliterator for the array elements
-     * @since 1.8
-     */
-    public static Spliterator.OfDouble spliterator(double[] array) {
-        return Spliterators.spliterator(array,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a {@link Spliterator.OfDouble} covering the specified range of
-     * the specified array.
-     *
-     * <p>The spliterator reports {@link Spliterator#SIZED},
-     * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
-     * {@link Spliterator#IMMUTABLE}.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a spliterator for the array elements
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static Spliterator.OfDouble spliterator(double[] array, int startInclusive, int endExclusive) {
-        return Spliterators.spliterator(array, startInclusive, endExclusive,
-                                        Spliterator.ORDERED | Spliterator.IMMUTABLE);
-    }
-
-    /**
-     * Returns a sequential {@link Stream} with the specified array as its
-     * source.
-     *
-     * @param <T> The type of the array elements
-     * @param array The array, assumed to be unmodified during use
-     * @return a {@code Stream} for the array
-     * @since 1.8
-     */
-    public static <T> Stream<T> stream(T[] array) {
-        return stream(array, 0, array.length);
-    }
-
-    /**
-     * Returns a sequential {@link Stream} with the specified range of the
-     * specified array as its source.
-     *
-     * @param <T> the type of the array elements
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a {@code Stream} for the array range
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static <T> Stream<T> stream(T[] array, int startInclusive, int endExclusive) {
-        return StreamSupport.stream(spliterator(array, startInclusive, endExclusive), false);
-    }
-
-    /**
-     * Returns a sequential {@link IntStream} with the specified array as its
-     * source.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @return an {@code IntStream} for the array
-     * @since 1.8
-     */
-    public static IntStream stream(int[] array) {
-        return stream(array, 0, array.length);
-    }
-
-    /**
-     * Returns a sequential {@link IntStream} with the specified range of the
-     * specified array as its source.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return an {@code IntStream} for the array range
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static IntStream stream(int[] array, int startInclusive, int endExclusive) {
-        return StreamSupport.intStream(spliterator(array, startInclusive, endExclusive), false);
-    }
-
-    /**
-     * Returns a sequential {@link LongStream} with the specified array as its
-     * source.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @return a {@code LongStream} for the array
-     * @since 1.8
-     */
-    public static LongStream stream(long[] array) {
-        return stream(array, 0, array.length);
-    }
-
-    /**
-     * Returns a sequential {@link LongStream} with the specified range of the
-     * specified array as its source.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a {@code LongStream} for the array range
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static LongStream stream(long[] array, int startInclusive, int endExclusive) {
-        return StreamSupport.longStream(spliterator(array, startInclusive, endExclusive), false);
-    }
-
-    /**
-     * Returns a sequential {@link DoubleStream} with the specified array as its
-     * source.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @return a {@code DoubleStream} for the array
-     * @since 1.8
-     */
-    public static DoubleStream stream(double[] array) {
-        return stream(array, 0, array.length);
-    }
-
-    /**
-     * Returns a sequential {@link DoubleStream} with the specified range of the
-     * specified array as its source.
-     *
-     * @param array the array, assumed to be unmodified during use
-     * @param startInclusive the first index to cover, inclusive
-     * @param endExclusive index immediately past the last index to cover
-     * @return a {@code DoubleStream} for the array range
-     * @throws ArrayIndexOutOfBoundsException if {@code startInclusive} is
-     *         negative, {@code endExclusive} is less than
-     *         {@code startInclusive}, or {@code endExclusive} is greater than
-     *         the array size
-     * @since 1.8
-     */
-    public static DoubleStream stream(double[] array, int startInclusive, int endExclusive) {
-        return StreamSupport.doubleStream(spliterator(array, startInclusive, endExclusive), false);
     }
 }

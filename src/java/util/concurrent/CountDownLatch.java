@@ -34,7 +34,8 @@
  */
 
 package java.util.concurrent;
-import java.util.concurrent.locks.AbstractQueuedSynchronizer;
+import java.util.concurrent.locks.*;
+import java.util.concurrent.atomic.*;
 
 /**
  * A synchronization aid that allows one or more threads to wait until
@@ -72,7 +73,7 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * until all workers have completed.
  * </ul>
  *
- *  <pre> {@code
+ * <pre>
  * class Driver { // ...
  *   void main() throws InterruptedException {
  *     CountDownLatch startSignal = new CountDownLatch(1);
@@ -92,19 +93,21 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  *   private final CountDownLatch startSignal;
  *   private final CountDownLatch doneSignal;
  *   Worker(CountDownLatch startSignal, CountDownLatch doneSignal) {
- *     this.startSignal = startSignal;
- *     this.doneSignal = doneSignal;
+ *      this.startSignal = startSignal;
+ *      this.doneSignal = doneSignal;
  *   }
  *   public void run() {
- *     try {
- *       startSignal.await();
- *       doWork();
- *       doneSignal.countDown();
- *     } catch (InterruptedException ex) {} // return;
+ *      try {
+ *        startSignal.await();
+ *        doWork();
+ *        doneSignal.countDown();
+ *      } catch (InterruptedException ex) {} // return;
  *   }
  *
  *   void doWork() { ... }
- * }}</pre>
+ * }
+ *
+ * </pre>
  *
  * <p>Another typical usage would be to divide a problem into N parts,
  * describe each part with a Runnable that executes that portion and
@@ -113,7 +116,7 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * will be able to pass through await. (When threads must repeatedly
  * count down in this way, instead use a {@link CyclicBarrier}.)
  *
- *  <pre> {@code
+ * <pre>
  * class Driver2 { // ...
  *   void main() throws InterruptedException {
  *     CountDownLatch doneSignal = new CountDownLatch(N);
@@ -130,18 +133,20 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  *   private final CountDownLatch doneSignal;
  *   private final int i;
  *   WorkerRunnable(CountDownLatch doneSignal, int i) {
- *     this.doneSignal = doneSignal;
- *     this.i = i;
+ *      this.doneSignal = doneSignal;
+ *      this.i = i;
  *   }
  *   public void run() {
- *     try {
- *       doWork(i);
- *       doneSignal.countDown();
- *     } catch (InterruptedException ex) {} // return;
+ *      try {
+ *        doWork(i);
+ *        doneSignal.countDown();
+ *      } catch (InterruptedException ex) {} // return;
  *   }
  *
  *   void doWork() { ... }
- * }}</pre>
+ * }
+ *
+ * </pre>
  *
  * <p>Memory consistency effects: Until the count reaches
  * zero, actions in a thread prior to calling
@@ -169,10 +174,21 @@ public class CountDownLatch {
             return getState();
         }
 
+        /***
+         * 获得共享锁只需要直接判断当前锁状态是否为0
+         * 如果锁状态大于0，则返回-1
+         * @param acquires
+         * @return
+         */
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
 
+        /***
+         * 如果state不等于0，则减1，如果state等于0，则返回false
+         * @param releases
+         * @return
+         */
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
             for (;;) {
@@ -227,7 +243,14 @@ public class CountDownLatch {
      * @throws InterruptedException if the current thread is interrupted
      *         while waiting
      */
+    /***
+     * 1、检查中断位是否被置位，如果是则抛出中断异常
+     * 2、判断锁的state是否为0，如果不是则加入等待队列进入等待，等待节点为Node.SHARED==0,
+     * 3、如果state是0，则不等待继续执行
+     * @throws InterruptedException
+     */
     public void await() throws InterruptedException {
+
         sync.acquireSharedInterruptibly(1);
     }
 
@@ -272,8 +295,15 @@ public class CountDownLatch {
      * @throws InterruptedException if the current thread is interrupted
      *         while waiting
      */
+    /***
+     * 和await一样，只不过等待事件增了限制，超时则返回，如果线程被中断则抛出中断异常
+     * @param timeout
+     * @param unit
+     * @return
+     * @throws InterruptedException
+     */
     public boolean await(long timeout, TimeUnit unit)
-        throws InterruptedException {
+            throws InterruptedException {
         return sync.tryAcquireSharedNanos(1, unit.toNanos(timeout));
     }
 
@@ -286,6 +316,10 @@ public class CountDownLatch {
      * thread scheduling purposes.
      *
      * <p>If the current count equals zero then nothing happens.
+     */
+    /***
+     *或将锁状态减1，
+     * 如果锁状态减到0(如果还没减就是0则无视，不做任何处理)，则会依次循环唤醒等待队列中的线程
      */
     public void countDown() {
         sync.releaseShared(1);

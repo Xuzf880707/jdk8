@@ -158,6 +158,8 @@ public class ThreadLocal<T> {
      */
     public T get() {
         Thread t = Thread.currentThread();
+        //获得当前Thread的ThreadLocalMap
+        //每个 ThreadLocalMap 都维护一个数组 Entry，每个Entry==>{threadLocal,value}
         ThreadLocalMap map = getMap(t);
         if (map != null) {
             ThreadLocalMap.Entry e = map.getEntry(this);
@@ -197,10 +199,12 @@ public class ThreadLocal<T> {
      *        this thread-local.
      */
     public void set(T value) {
+        //获取当前线程
         Thread t = Thread.currentThread();
+        //获取当前线程Thread的 ThreadLocalMap
         ThreadLocalMap map = getMap(t);
         if (map != null)
-            map.set(this, value);
+            map.set(this, value);//ThreadLocalMap底层都维护一个数组 Entry，每个Entry==>{threadLocal,value}
         else
             createMap(t, value);
     }
@@ -228,6 +232,7 @@ public class ThreadLocal<T> {
      *
      * @param  t the current thread
      * @return the map
+     * 从这里发现，每个Thread都有一个threadLocals
      */
     ThreadLocalMap getMap(Thread t) {
         return t.threadLocals;

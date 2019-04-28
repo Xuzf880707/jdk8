@@ -34,8 +34,9 @@
  */
 
 package java.util.concurrent.locks;
-import java.util.concurrent.TimeUnit;
-import java.util.Collection;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
 
 /**
  * A reentrant mutual exclusion {@link Lock} with the same basic
@@ -64,7 +65,7 @@ import java.util.Collection;
  * fair lock may obtain it multiple times in succession while other
  * active threads are not progressing and not currently holding the
  * lock.
- * Also note that the untimed {@link #tryLock()} method does not
+ * Also note that the untimed {@link #tryLock() tryLock} method does not
  * honor the fairness setting. It will succeed if the lock
  * is available even if other threads are waiting.
  *
@@ -72,7 +73,7 @@ import java.util.Collection;
  * follow a call to {@code lock} with a {@code try} block, most
  * typically in a before/after construction such as:
  *
- *  <pre> {@code
+ * <pre>
  * class X {
  *   private final ReentrantLock lock = new ReentrantLock();
  *   // ...
@@ -85,12 +86,14 @@ import java.util.Collection;
  *       lock.unlock()
  *     }
  *   }
- * }}</pre>
+ * }
+ * </pre>
  *
  * <p>In addition to implementing the {@link Lock} interface, this
- * class defines a number of {@code public} and {@code protected}
- * methods for inspecting the state of the lock.  Some of these
- * methods are only useful for instrumentation and monitoring.
+ * class defines methods {@code isLocked} and
+ * {@code getLockQueueLength}, as well as some associated
+ * {@code protected} access methods that may be useful for
+ * instrumentation and monitoring.
  *
  * <p>Serialization of this class behaves in the same way as built-in
  * locks: a deserialized lock is in the unlocked state, regardless of
@@ -106,6 +109,9 @@ import java.util.Collection;
 public class ReentrantLock implements Lock, java.io.Serializable {
     private static final long serialVersionUID = 7373984872572414699L;
     /** Synchronizer providing all implementation mechanics */
+    /***
+     * 持有AQS的一个子类的一个引用
+     */
     private final Sync sync;
 
     /**
@@ -123,19 +129,25 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         abstract void lock();
 
         /**
-         * Performs non-fair tryLock.  tryAcquire is implemented in
-         * subclasses, but both need nonfair try for trylock method.
+         * Performs non-fair tryLock.  tryAcquire is
+         * implemented in subclasses, but both need nonfair
+         * try for trylock method.
+         */
+        /***
+         * 非公平尝试获取独占锁的实现方式，lock是不会走这里的，如果没获得到锁则返回false
+         * @param acquires
+         * @return
          */
         final boolean nonfairTryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
-            int c = getState();
-            if (c == 0) {
+            int c = getState();//获取锁状态
+            if (c == 0) {//锁还未被占用
                 if (compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
                 }
             }
-            else if (current == getExclusiveOwnerThread()) {
+            else if (current == getExclusiveOwnerThread()) {//锁已被占用，则判断是否被同一个线程占用，如果是同一个，锁占用次数计数加1，重用的实现方式
                 int nextc = c + acquires;
                 if (nextc < 0) // overflow
                     throw new Error("Maximum lock count exceeded");
@@ -146,12 +158,15 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         }
 
         protected final boolean tryRelease(int releases) {
+            //锁状态减releases
             int c = getState() - releases;
+            //如果不是持有锁的线程，则报错
             if (Thread.currentThread() != getExclusiveOwnerThread())
                 throw new IllegalMonitorStateException();
             boolean free = false;
+            //如果锁状态为0，则修改占用当前锁的线程为空
             if (c == 0) {
-                free = true;
+                free = true;//只有c=0,才会返回true,只有返回true才会继续唤醒队列中等待的线程
                 setExclusiveOwnerThread(null);
             }
             setState(c);
@@ -183,10 +198,11 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         }
 
         /**
-         * Reconstitutes the instance from a stream (that is, deserializes it).
+         * Reconstitutes this lock instance from a stream.
+         * @param s the stream
          */
         private void readObject(java.io.ObjectInputStream s)
-            throws java.io.IOException, ClassNotFoundException {
+                throws java.io.IOException, ClassNotFoundException {
             s.defaultReadObject();
             setState(0); // reset to unlocked state
         }
@@ -194,6 +210,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
 
     /**
      * Sync object for non-fair locks
+     */
+    /***
+     * 非公平锁的子类
      */
     static final class NonfairSync extends Sync {
         private static final long serialVersionUID = 7316153563782823691L;
@@ -203,12 +222,21 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * acquire on failure.
          */
         final void lock() {
+            /***
+             * 查询修改锁的状态（不管队列是否有线程在等待，这就是非公平锁的原因）
+             */
             if (compareAndSetState(0, 1))
                 setExclusiveOwnerThread(Thread.currentThread());
             else
-                acquire(1);
-        }
+            /***
+             *   if (!tryAcquire(arg) &&
+             *             acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+             *             selfInterrupt();
+             */
+                acquire(1);//继承AQS,并调用tryAcquire
 
+        }
+        //尝试获得独占锁
         protected final boolean tryAcquire(int acquires) {
             return nonfairTryAcquire(acquires);
         }
@@ -233,7 +261,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             int c = getState();
             if (c == 0) {
                 if (!hasQueuedPredecessors() &&
-                    compareAndSetState(0, acquires)) {
+                        compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
                 }
@@ -253,6 +281,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * Creates an instance of {@code ReentrantLock}.
      * This is equivalent to using {@code ReentrantLock(false)}.
      */
+    /***
+     * 默认是非公平锁
+     */
     public ReentrantLock() {
         sync = new NonfairSync();
     }
@@ -262,6 +293,10 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * given fairness policy.
      *
      * @param fair {@code true} if this lock should use a fair ordering policy
+     */
+    /***
+     * 指定是否是公平锁
+     * @param fair
      */
     public ReentrantLock(boolean fair) {
         sync = fair ? new FairSync() : new NonfairSync();
@@ -351,7 +386,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * {@link #tryLock(long, TimeUnit) tryLock(0, TimeUnit.SECONDS) }
      * which is almost equivalent (it also detects interruption).
      *
-     * <p>If the current thread already holds this lock then the hold
+     * <p> If the current thread already holds this lock then the hold
      * count is incremented by one and the method returns {@code true}.
      *
      * <p>If the lock is held by another thread then this method will return
@@ -378,11 +413,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * method. If you want a timed {@code tryLock} that does permit barging on
      * a fair lock then combine the timed and un-timed forms together:
      *
-     *  <pre> {@code
-     * if (lock.tryLock() ||
-     *     lock.tryLock(timeout, unit)) {
-     *   ...
-     * }}</pre>
+     * <pre>if (lock.tryLock() || lock.tryLock(timeout, unit) ) { ... }
+     * </pre>
      *
      * <p>If the current thread
      * already holds this lock then the hold count is incremented by one and
@@ -436,6 +468,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *         the lock could be acquired
      * @throws InterruptedException if the current thread is interrupted
      * @throws NullPointerException if the time unit is null
+     *
      */
     public boolean tryLock(long timeout, TimeUnit unit)
             throws InterruptedException {
@@ -453,7 +486,19 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * @throws IllegalMonitorStateException if the current thread does not
      *         hold this lock
      */
+    /***
+     * 解锁
+     */
     public void unlock() {
+        /***
+         *  if (tryRelease(arg)) {
+         *             Node h = head;
+         *             if (h != null && h.waitStatus != 0)
+         *                 unparkSuccessor(h);
+         *             return true;
+         *         }
+         */
+        //锁状态减1
         sync.release(1);
     }
 
@@ -511,7 +556,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * not be entered with the lock already held then we can assert that
      * fact:
      *
-     *  <pre> {@code
+     * <pre>
      * class X {
      *   ReentrantLock lock = new ReentrantLock();
      *   // ...
@@ -524,7 +569,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *       lock.unlock();
      *     }
      *   }
-     * }}</pre>
+     * }
+     * </pre>
      *
      * @return the number of holds on this lock by the current thread,
      *         or zero if this lock is not held by the current thread
@@ -536,12 +582,12 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     /**
      * Queries if this lock is held by the current thread.
      *
-     * <p>Analogous to the {@link Thread#holdsLock(Object)} method for
-     * built-in monitor locks, this method is typically used for
-     * debugging and testing. For example, a method that should only be
-     * called while a lock is held can assert that this is the case:
+     * <p>Analogous to the {@link Thread#holdsLock} method for built-in
+     * monitor locks, this method is typically used for debugging and
+     * testing. For example, a method that should only be called while
+     * a lock is held can assert that this is the case:
      *
-     *  <pre> {@code
+     * <pre>
      * class X {
      *   ReentrantLock lock = new ReentrantLock();
      *   // ...
@@ -550,12 +596,13 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *       assert lock.isHeldByCurrentThread();
      *       // ... method body
      *   }
-     * }}</pre>
+     * }
+     * </pre>
      *
      * <p>It can also be used to ensure that a reentrant lock is used
      * in a non-reentrant manner, for example:
      *
-     *  <pre> {@code
+     * <pre>
      * class X {
      *   ReentrantLock lock = new ReentrantLock();
      *   // ...
@@ -569,7 +616,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *           lock.unlock();
      *       }
      *   }
-     * }}</pre>
+     * }
+     * </pre>
      *
      * @return {@code true} if current thread holds this lock and
      *         {@code false} otherwise
@@ -630,6 +678,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         return sync.hasQueuedThreads();
     }
 
+
     /**
      * Queries whether the given thread is waiting to acquire this
      * lock. Note that because cancellations may occur at any time, a
@@ -644,6 +693,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     public final boolean hasQueuedThread(Thread thread) {
         return sync.isQueued(thread);
     }
+
 
     /**
      * Returns an estimate of the number of threads waiting to
@@ -756,7 +806,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     public String toString() {
         Thread o = sync.getOwner();
         return super.toString() + ((o == null) ?
-                                   "[Unlocked]" :
-                                   "[Locked by thread " + o.getName() + "]");
+                "[Unlocked]" :
+                "[Locked by thread " + o.getName() + "]");
     }
 }

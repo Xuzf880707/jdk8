@@ -26,11 +26,6 @@
 package java.nio;
 
 import java.security.AccessController;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.LongAdder;
-
-import sun.misc.JavaLangRefAccess;
-import sun.misc.SharedSecrets;
 import sun.misc.Unsafe;
 import sun.misc.VM;
 
@@ -70,22 +65,22 @@ class Bits {                            // package-private
 
     static char getCharL(ByteBuffer bb, int bi) {
         return makeChar(bb._get(bi + 1),
-                        bb._get(bi    ));
+                bb._get(bi    ));
     }
 
     static char getCharL(long a) {
         return makeChar(_get(a + 1),
-                        _get(a    ));
+                _get(a    ));
     }
 
     static char getCharB(ByteBuffer bb, int bi) {
         return makeChar(bb._get(bi    ),
-                        bb._get(bi + 1));
+                bb._get(bi + 1));
     }
 
     static char getCharB(long a) {
         return makeChar(_get(a    ),
-                        _get(a + 1));
+                _get(a + 1));
     }
 
     static char getChar(ByteBuffer bb, int bi, boolean bigEndian) {
@@ -142,22 +137,22 @@ class Bits {                            // package-private
 
     static short getShortL(ByteBuffer bb, int bi) {
         return makeShort(bb._get(bi + 1),
-                         bb._get(bi    ));
+                bb._get(bi    ));
     }
 
     static short getShortL(long a) {
         return makeShort(_get(a + 1),
-                         _get(a    ));
+                _get(a    ));
     }
 
     static short getShortB(ByteBuffer bb, int bi) {
         return makeShort(bb._get(bi    ),
-                         bb._get(bi + 1));
+                bb._get(bi + 1));
     }
 
     static short getShortB(long a) {
         return makeShort(_get(a    ),
-                         _get(a + 1));
+                _get(a + 1));
     }
 
     static short getShort(ByteBuffer bb, int bi, boolean bigEndian) {
@@ -217,30 +212,30 @@ class Bits {                            // package-private
 
     static int getIntL(ByteBuffer bb, int bi) {
         return makeInt(bb._get(bi + 3),
-                       bb._get(bi + 2),
-                       bb._get(bi + 1),
-                       bb._get(bi    ));
+                bb._get(bi + 2),
+                bb._get(bi + 1),
+                bb._get(bi    ));
     }
 
     static int getIntL(long a) {
         return makeInt(_get(a + 3),
-                       _get(a + 2),
-                       _get(a + 1),
-                       _get(a    ));
+                _get(a + 2),
+                _get(a + 1),
+                _get(a    ));
     }
 
     static int getIntB(ByteBuffer bb, int bi) {
         return makeInt(bb._get(bi    ),
-                       bb._get(bi + 1),
-                       bb._get(bi + 2),
-                       bb._get(bi + 3));
+                bb._get(bi + 1),
+                bb._get(bi + 2),
+                bb._get(bi + 3));
     }
 
     static int getIntB(long a) {
         return makeInt(_get(a    ),
-                       _get(a + 1),
-                       _get(a + 2),
-                       _get(a + 3));
+                _get(a + 1),
+                _get(a + 2),
+                _get(a + 3));
     }
 
     static int getInt(ByteBuffer bb, int bi, boolean bigEndian) {
@@ -316,46 +311,46 @@ class Bits {                            // package-private
 
     static long getLongL(ByteBuffer bb, int bi) {
         return makeLong(bb._get(bi + 7),
-                        bb._get(bi + 6),
-                        bb._get(bi + 5),
-                        bb._get(bi + 4),
-                        bb._get(bi + 3),
-                        bb._get(bi + 2),
-                        bb._get(bi + 1),
-                        bb._get(bi    ));
+                bb._get(bi + 6),
+                bb._get(bi + 5),
+                bb._get(bi + 4),
+                bb._get(bi + 3),
+                bb._get(bi + 2),
+                bb._get(bi + 1),
+                bb._get(bi    ));
     }
 
     static long getLongL(long a) {
         return makeLong(_get(a + 7),
-                        _get(a + 6),
-                        _get(a + 5),
-                        _get(a + 4),
-                        _get(a + 3),
-                        _get(a + 2),
-                        _get(a + 1),
-                        _get(a    ));
+                _get(a + 6),
+                _get(a + 5),
+                _get(a + 4),
+                _get(a + 3),
+                _get(a + 2),
+                _get(a + 1),
+                _get(a    ));
     }
 
     static long getLongB(ByteBuffer bb, int bi) {
         return makeLong(bb._get(bi    ),
-                        bb._get(bi + 1),
-                        bb._get(bi + 2),
-                        bb._get(bi + 3),
-                        bb._get(bi + 4),
-                        bb._get(bi + 5),
-                        bb._get(bi + 6),
-                        bb._get(bi + 7));
+                bb._get(bi + 1),
+                bb._get(bi + 2),
+                bb._get(bi + 3),
+                bb._get(bi + 4),
+                bb._get(bi + 5),
+                bb._get(bi + 6),
+                bb._get(bi + 7));
     }
 
     static long getLongB(long a) {
         return makeLong(_get(a    ),
-                        _get(a + 1),
-                        _get(a + 2),
-                        _get(a + 3),
-                        _get(a + 4),
-                        _get(a + 5),
-                        _get(a + 6),
-                        _get(a + 7));
+                _get(a + 1),
+                _get(a + 2),
+                _get(a + 3),
+                _get(a + 4),
+                _get(a + 5),
+                _get(a + 6),
+                _get(a + 7));
     }
 
     static long getLong(ByteBuffer bb, int bi, boolean bigEndian) {
@@ -581,11 +576,11 @@ class Bits {                            // package-private
             unsafe.putLong(a, 0x0102030405060708L);
             byte b = unsafe.getByte(a);
             switch (b) {
-            case 0x01: byteOrder = ByteOrder.BIG_ENDIAN;     break;
-            case 0x08: byteOrder = ByteOrder.LITTLE_ENDIAN;  break;
-            default:
-                assert false;
-                byteOrder = null;
+                case 0x01: byteOrder = ByteOrder.BIG_ENDIAN;     break;
+                case 0x08: byteOrder = ByteOrder.LITTLE_ENDIAN;  break;
+                default:
+                    assert false;
+                    byteOrder = null;
             }
         } finally {
             unsafe.freeMemory(a);
@@ -612,9 +607,9 @@ class Bits {                            // package-private
         if (unalignedKnown)
             return unaligned;
         String arch = AccessController.doPrivileged(
-            new sun.security.action.GetPropertyAction("os.arch"));
+                new sun.security.action.GetPropertyAction("os.arch"));
         unaligned = arch.equals("i386") || arch.equals("x86")
-            || arch.equals("amd64") || arch.equals("x86_64");
+                || arch.equals("amd64") || arch.equals("x86_64");
         unalignedKnown = true;
         return unaligned;
     }
@@ -626,103 +621,63 @@ class Bits {                            // package-private
     // direct buffer memory.  This value may be changed during VM
     // initialization if it is launched with "-XX:MaxDirectMemorySize=<size>".
     private static volatile long maxMemory = VM.maxDirectMemory();
-    private static final AtomicLong reservedMemory = new AtomicLong();
-    private static final AtomicLong totalCapacity = new AtomicLong();
-    private static final AtomicLong count = new AtomicLong();
-    private static volatile boolean memoryLimitSet = false;
-    // max. number of sleeps during try-reserving with exponentially
-    // increasing delay before throwing OutOfMemoryError:
-    // 1, 2, 4, 8, 16, 32, 64, 128, 256 (total 511 ms ~ 0.5 s)
-    // which means that OOME will be thrown after 0.5 s of trying
-    private static final int MAX_SLEEPS = 9;
+    private static volatile long reservedMemory;
+    private static volatile long totalCapacity;
+    private static volatile long count;
+    private static boolean memoryLimitSet = false;
 
     // These methods should be called whenever direct memory is allocated or
     // freed.  They allow the user to control the amount of direct memory
     // which a process may access.  All sizes are specified in bytes.
+
+    /***
+     * 查询申请空间
+     * @param size 分配内存大小
+     * @param cap 实际内存大小
+     *            如果有剩余内存可用，占坑。没有的话，通过 System.gc 来触发 FullGC，GC 完剩余内存还不够就会抛出异常 OutOfMemoryError。
+     */
     static void reserveMemory(long size, int cap) {
-
-        if (!memoryLimitSet && VM.isBooted()) {
-            maxMemory = VM.maxDirectMemory();
-            memoryLimitSet = true;
-        }
-
-        // optimist!
-        if (tryReserveMemory(size, cap)) {
-            return;
-        }
-
-        final JavaLangRefAccess jlra = SharedSecrets.getJavaLangRefAccess();
-
-        // retry while helping enqueue pending Reference objects
-        // which includes executing pending Cleaner(s) which includes
-        // Cleaner(s) that free direct buffer memory
-        while (jlra.tryHandlePendingReference()) {
-            if (tryReserveMemory(size, cap)) {
+        synchronized (Bits.class) {//用一个全局锁
+            if (!memoryLimitSet && VM.isBooted()) {
+                maxMemory = VM.maxDirectMemory();
+                memoryLimitSet = true;
+            }
+            // -XX:MaxDirectMemorySize limits the total capacity rather than the
+            // actual memory usage, which will differ when buffers are page
+            // aligned.
+            if (cap <= maxMemory - totalCapacity) {
+                reservedMemory += size;
+                totalCapacity += cap;
+                count++;
                 return;
             }
         }
-
-        // trigger VM's Reference processing
+        //没有的话，通过 System.gc 来触发 FullGC,触发一次System.gc
         System.gc();
-
-        // a retry loop with exponential back-off delays
-        // (this gives VM some time to do it's job)
-        boolean interrupted = false;
         try {
-            long sleepTime = 1;
-            int sleeps = 0;
-            while (true) {
-                if (tryReserveMemory(size, cap)) {
-                    return;
-                }
-                if (sleeps >= MAX_SLEEPS) {
-                    break;
-                }
-                if (!jlra.tryHandlePendingReference()) {
-                    try {
-                        Thread.sleep(sleepTime);
-                        sleepTime <<= 1;
-                        sleeps++;
-                    } catch (InterruptedException e) {
-                        interrupted = true;
-                    }
-                }
-            }
-
-            // no luck
-            throw new OutOfMemoryError("Direct buffer memory");
-
-        } finally {
-            if (interrupted) {
-                // don't swallow interrupts
-                Thread.currentThread().interrupt();
-            }
+            Thread.sleep(100);
+        } catch (InterruptedException x) {
+            // Restore interrupt status
+            Thread.currentThread().interrupt();
         }
-    }
-
-    private static boolean tryReserveMemory(long size, int cap) {
-
-        // -XX:MaxDirectMemorySize limits the total capacity rather than the
-        // actual memory usage, which will differ when buffers are page
-        // aligned.
-        long totalCap;
-        while (cap <= maxMemory - (totalCap = totalCapacity.get())) {
-            if (totalCapacity.compareAndSet(totalCap, totalCap + cap)) {
-                reservedMemory.addAndGet(size);
-                count.incrementAndGet();
-                return true;
-            }
+        synchronized (Bits.class) {
+            //GC 完剩余内存还不够就会抛出异常 OutOfMemoryError。
+            if (totalCapacity + cap > maxMemory)
+                throw new OutOfMemoryError("Direct buffer memory");
+            reservedMemory += size;
+            totalCapacity += cap;
+            count++;
         }
 
-        return false;
     }
 
-
-    static void unreserveMemory(long size, int cap) {
-        long cnt = count.decrementAndGet();
-        long reservedMem = reservedMemory.addAndGet(-size);
-        long totalCap = totalCapacity.addAndGet(-cap);
-        assert cnt >= 0 && reservedMem >= 0 && totalCap >= 0;
+    static synchronized void unreserveMemory(long size, int cap) {
+        if (reservedMemory > 0) {
+            reservedMemory -= size;
+            totalCapacity -= cap;
+            count--;
+            assert (reservedMemory > -1);
+        }
     }
 
     // -- Monitoring of direct buffer usage --
@@ -730,37 +685,37 @@ class Bits {                            // package-private
     static {
         // setup access to this package in SharedSecrets
         sun.misc.SharedSecrets.setJavaNioAccess(
-            new sun.misc.JavaNioAccess() {
-                @Override
-                public sun.misc.JavaNioAccess.BufferPool getDirectBufferPool() {
-                    return new sun.misc.JavaNioAccess.BufferPool() {
-                        @Override
-                        public String getName() {
-                            return "direct";
-                        }
-                        @Override
-                        public long getCount() {
-                            return Bits.count.get();
-                        }
-                        @Override
-                        public long getTotalCapacity() {
-                            return Bits.totalCapacity.get();
-                        }
-                        @Override
-                        public long getMemoryUsed() {
-                            return Bits.reservedMemory.get();
-                        }
-                    };
-                }
-                @Override
-                public ByteBuffer newDirectByteBuffer(long addr, int cap, Object ob) {
-                    return new DirectByteBuffer(addr, cap, ob);
-                }
-                @Override
-                public void truncate(Buffer buf) {
-                    buf.truncate();
-                }
-        });
+                new sun.misc.JavaNioAccess() {
+                    @Override
+                    public sun.misc.JavaNioAccess.BufferPool getDirectBufferPool() {
+                        return new sun.misc.JavaNioAccess.BufferPool() {
+                            @Override
+                            public String getName() {
+                                return "direct";
+                            }
+                            @Override
+                            public long getCount() {
+                                return Bits.count;
+                            }
+                            @Override
+                            public long getTotalCapacity() {
+                                return Bits.totalCapacity;
+                            }
+                            @Override
+                            public long getMemoryUsed() {
+                                return Bits.reservedMemory;
+                            }
+                        };
+                    }
+                    @Override
+                    public ByteBuffer newDirectByteBuffer(long addr, int cap, Object ob) {
+                        return new DirectByteBuffer(addr, cap, ob);
+                    }
+                    @Override
+                    public void truncate(Buffer buf) {
+                        buf.truncate();
+                    }
+                });
     }
 
     // -- Bulk get/put acceleration --
