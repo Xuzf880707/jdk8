@@ -1037,12 +1037,12 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              *      如果请求线程为了新任务，则直接拒绝创建线程。
              *      如果请求创建线程是为了协助shutdown指令，处理队列中未完成的任务，则可创建
              */
-            if(rs>SHUTDOWN){
+            if(rs>SHUTDOWN){//当调用shutdownnow的时候，rs=STOP>SHUTDOWN
                 return false
-            }else if(rs==SHUTDOWN){
-                if(firstTask!=null){
+            }else if(rs==SHUTDOWN){//可能调用了shutdown，这时候会协助执行完对垒中等待的任务，但是同时也不能接收新的任务
+                if(firstTask!=null){//表示添加新任务，则立马拒绝
                     return false
-                }else if(workQueue.isEmpty()){
+                }else if(workQueue.isEmpty()){//如果队列是空的话，就没必要添加信的线程协助处理队列中的task
                     return false;
                 }
             }
@@ -1061,6 +1061,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 if(wc >= CAPACITY){//如果当前工作线程worker>=CAPACITY 超过线程池最大容量，那肯定不能再创建了
                     return false;
                 }
+                //用core来表示是否创建核心线程数
                 if( wc >= (core ? corePoolSize : maximumPoolSize)){//如果工作线程worker大于核心线程数了，则不能再创建核心线程数了
                     return false;
                 }
@@ -1075,7 +1076,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 // b:如果不是创建核心线程，则当达到最大线程了则不允许再添加worker，返回false，
                 // c:成功添加worker，则跳出retry循环，继续开始创建新加的worker
 
-                //如果线程池状态发生变化，则要从头检查线程池状态
+                //如果线程池状态发生变化，表示可能在你创建线程的时候，线程池状态被别的线程修改了(比如shutdownnow等)，所以要从头检查线程池状态
                 if (runStateOf(c) != rs)
                     continue retry;
                 // else CAS failed due to workerCount change; retry inner loop
