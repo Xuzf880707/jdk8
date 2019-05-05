@@ -269,6 +269,9 @@ public abstract class AbstractQueuedLongSynchronizer
          *
          * @return the predecessor of this node
          */
+        /***
+         * 1、获得当前节点的前置地节点
+         */
         final Node predecessor() throws NullPointerException {
             Node p = prev;
             if (p == null)
@@ -379,6 +382,16 @@ public abstract class AbstractQueuedLongSynchronizer
      *
      * @param mode Node.EXCLUSIVE for exclusive, Node.SHARED for shared
      * @return the new node
+     */
+    /***
+     *
+     * 1、根据当前线程创建一个节点
+     *      (独占锁的话：Node.EXCLUSIVE
+     *       共享锁的话：Node.SHARED )
+     * 2、获取尾节点，并将新增节点的前置节点prev设置为旧的tail节点。同时采用 CAS操作尝试将tail对象指向新增的节点：
+     *      成功：则将旧的tail节点的后置节点属性next置为新增节点，并返回新增的节点。
+     *      失败：死循环，不断的尝试将新增节点添加到链表的尾节点，直到成功。
+     *
      */
     private Node addWaiter(Node mode) {
         Node node = new Node(Thread.currentThread(), mode);
@@ -570,15 +583,25 @@ public abstract class AbstractQueuedLongSynchronizer
      * @param node the node
      * @return {@code true} if thread should block
      */
+    /***
+     * pred是node的前驱节点
+     * node为新增节点
+     *      整个操作就是先在第一次循环里移除已取消状态为CANCEL的节点；在第二次循环里将前置非Node.SIGNAL且不是CANCEL的节点设置为Node.SIGNAL状态；在第三次循环里返回true支持挂起。所以最多循环三次，则该节点就会被支持挂起。
+     * 1、node为新增节点，该节点主要是负责将前置节点的额状态设置为Node.SIGNAL
+     * 2、如果前置节点是CANCEL，则先移除CANCEL节点，并修改当前节点的pre引用(这样下一次循环的时候如果不是Node.SIGNAL，就可以先置为Node.SIGNAL，然后再下下次循环里返回true并支持挂起)
+     * 3、如果前置节点是小于0，则先将前置节点设置为Node.SIGNAL，这样再下一次循环里会返回true并支持挂起
+     *
+     */
     private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
         int ws = pred.waitStatus;
+        //如果前置节点已经是Node.SIGNAL，则直接返回true，表示当前节点可以挂起等待了
         if (ws == Node.SIGNAL)
             /*
              * This node has already set status asking a release
              * to signal it, so it can safely park.
              */
             return true;
-        if (ws > 0) {
+        if (ws > 0) {//如果前置节点是cancel状态，则该节点可以从链表里移除。
             /*
              * Predecessor was cancelled. Skip over predecessors and
              * indicate retry.
@@ -587,7 +610,7 @@ public abstract class AbstractQueuedLongSynchronizer
                 node.prev = pred = pred.prev;
             } while (pred.waitStatus > 0);
             pred.next = node;
-        } else {
+        } else {//如果前置节点小于0，则将前置节点设置为Node.SIGNAL，并返回false（这里要注意，只是当前循环返回false，再下一个循环由于前置节点已经是Node.SIGNAL，所以会返回true并支持刮起）
             /*
              * waitStatus must be 0 or PROPAGATE.  Indicate that we
              * need a signal, but don't park yet.  Caller will need to
@@ -658,13 +681,39 @@ public abstract class AbstractQueuedLongSynchronizer
      * Acquires in exclusive interruptible mode.
      * @param arg the acquire argument
      */
+    /***
+     * 1、创建一个独占的节点
+     * 2、将新增的独占节点添加到尾节点，并返回新增节点。
+     * 3、无限死循环：
+     *      获得当前节点的前置节点pre；
+     *      如果前置节点为head节点，且并再次尝试获得锁成功，则要将本节点设置为头结点，表示正在运行：
+     *          根据是否公平锁来判断线程下一步操作：
+     *            公平锁：
+     *               如果当前锁状态为0：则先判断当前是否有队列处于：有则进入对列等待；没有的话，尝试获得锁，如果获取失败则返回false
+     *               如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *           非公平锁：
+     *               如果当前锁状态为0：尝试获得锁，获得失败，则返回false
+     *               如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *      如果前置节点pre不是头节点，或者前驱节点是头节点，正在运行，但是还没执行完，则tryAcquire(arg)失败。
+     *          1、检测前驱节点和当前节点的状态(整个操作就是先在第一次循环里移除已取消状态为CANCEL的节点；在第二次循环里将前置非Node.SIGNAL且不是CANCEL的节点设置为Node.SIGNAL状态；在第三次循环里返回true支持挂起。
+     *                      所以最多循环三次，则该节点就会返回true并被支持挂起。)
+     *              如果前置节点pre.waitStatus=Node.SIGNAL（在采用condition的时候）,表示等待唤醒，则当前节点肯定要进入队列排队.
+     *              如果前置节点pre.waitStatus=Node.CANCEL(表示已被取消)，则跳过移除前置节点，继续向前检查直到遇到前置节点，直到遇到非CANCEL的状态则返回false：(该步骤可以去除被取消的节点)
+     *              如果前置节点pre.waitStatus<0,则将前置节点设置为Node.SIGNAL，并返回false
+     *          2、调用LockSupport.park()挂起，并等待唤醒之后检查中断位，如果中断位为true,则抛出异常(这就是为什么说可以被中断)
+     *
+     */
     private void doAcquireInterruptibly(long arg)
         throws InterruptedException {
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
             for (;;) {
+                //获得当前节点的前置节点
                 final Node p = node.predecessor();
+                //tryAcquire(arg)=true的话说明以下几种情况；
+                //  1、如果head节点是当前节点的前驱节点，并且当前节点能获得锁进入运行状态。说明当前线程可运行，则要将本节点设置为头结点，表示正在运行
+                //      （在前驱节点任务刚好执行完成的时候，这个时候还没主动唤醒head节点的下一个节点的时候，就是处于这种状态）
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
@@ -991,6 +1040,21 @@ public abstract class AbstractQueuedLongSynchronizer
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
      * @throws InterruptedException if the current thread is interrupted
+     */
+    /***
+     *
+     * 1、判断线程是中断位是否中断状态，是的话，抛出中断异常(可能中断位是由于在尝试获得锁之前就调用了interupt方法)
+     * 2、根据是否公平锁来判断线程下一步操作：
+     *      公平锁：
+     *          如果当前锁状态为0：则先判断当前是否有队列处于：有则进入对列等待；没有的话，尝试获得锁，如果获取失败则返回false
+     *          如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *      非公平锁：
+     *          如果当前锁状态为0：尝试获得锁，获得失败，则返回false
+     *          如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *
+     * 3、如果获取失败，则准备进入中断等待
+     *
+     *
      */
     public final void acquireInterruptibly(long arg)
             throws InterruptedException {

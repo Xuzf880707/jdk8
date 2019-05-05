@@ -1392,7 +1392,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                         !wt.isInterrupted())
                     wt.interrupt();
                 try {
-                    ////这个是扩展方法，可以自己实现，在线程执行前执行
+                    //这个是扩展方法，可以自己实现，在线程执行前执行
                     beforeExecute(wt, task);
                     Throwable thrown = null;
                     try {
