@@ -491,6 +491,9 @@ public abstract class AbstractQueuedSynchronizer
          *
          * @return the predecessor of this node
          */
+        /***
+         * 1、获得当前节点的前置地节点
+         */
         final Node predecessor() throws NullPointerException {
             Node p = prev;
             if (p == null)
@@ -606,6 +609,16 @@ public abstract class AbstractQueuedSynchronizer
      *
      * @param mode Node.EXCLUSIVE for exclusive, Node.SHARED for shared
      * @return the new node
+     */
+    /***
+     *
+     * 1、根据当前线程创建一个节点
+     *      (独占锁的话：Node.EXCLUSIVE
+     *       共享锁的话：Node.SHARED )
+     * 2、获取尾节点，并将新增节点的前置节点prev设置为旧的tail节点。同时采用 CAS操作尝试将tail对象指向新增的节点：
+     *      成功：则将旧的tail节点的后置节点属性next置为新增节点，并返回新增的节点。
+     *      失败：死循环，不断的尝试将新增节点添加到链表的尾节点，直到成功。
+     *
      */
     private Node addWaiter(Node mode) {
         Node node = new Node(Thread.currentThread(), mode);
@@ -811,6 +824,17 @@ public abstract class AbstractQueuedSynchronizer
      * @param node the node
      * @return {@code true} if thread should block
      */
+
+    /***
+     *
+     * 1、根据当前线程创建一个节点
+     *      (独占锁的话：Node.EXCLUSIVE
+     *       共享锁的话：Node.SHARED )
+     * 2、获取尾节点，并将新增节点的前置节点prev设置为旧的tail节点。同时采用 CAS操作尝试将tail对象指向新增的节点：
+     *      成功：则将旧的tail节点的后置节点属性next置为新增节点，并返回新增的节点。
+     *      失败：死循环，不断的尝试将新增节点添加到链表的尾节点，直到成功。
+     *
+     */
     private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
         int ws = pred.waitStatus;
         if (ws == Node.SIGNAL)//如果前一个节点需要被唤醒，则当前节点只能直接挂起
@@ -871,9 +895,13 @@ public abstract class AbstractQueuedSynchronizer
      * Acquires in exclusive uninterruptible mode for thread already in
      * queue. Used by condition wait methods as well as acquire.
      *
-     * @param node the node
+     * @param node the node 新增节点
      * @param arg the acquire argument
      * @return {@code true} if interrupted while waiting
+     */
+    /***
+     * 1、循环新增节点的前置节点
+     *      如果node被唤醒后走到这里，则将被唤醒的节点设置为head，这样下次唤醒head.next节点的时候就会唤醒当前节点的下一个节点。
      */
     final boolean acquireQueued(final Node node, int arg) {
         boolean failed = true;
@@ -902,6 +930,28 @@ public abstract class AbstractQueuedSynchronizer
     /**
      * Acquires in exclusive interruptible mode.
      * @param arg the acquire argument
+     */
+    /***
+     * 1、创建一个独占的节点
+     * 2、将新增的独占节点添加到尾节点，并返回新增节点。
+     * 3、无限死循环：
+     *      获得当前节点的前置节点pre；
+     *      如果前置节点为head节点，且并再次尝试获得锁成功，则要将本节点设置为头结点，表示正在运行：
+     *          根据是否公平锁来判断线程下一步操作：
+     *            公平锁：
+     *               如果当前锁状态为0：则先判断当前是否有队列处于：有则进入对列等待；没有的话，尝试获得锁，如果获取失败则返回false
+     *               如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *           非公平锁：
+     *               如果当前锁状态为0：尝试获得锁，获得失败，则返回false
+     *               如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *      如果前置节点pre不是头节点，或者前驱节点是头节点，正在运行，但是还没执行完，则tryAcquire(arg)失败。
+     *          1、检测前驱节点和当前节点的状态(整个操作就是先在第一次循环里移除已取消状态为CANCEL的节点；在第二次循环里将前置非Node.SIGNAL且不是CANCEL的节点设置为Node.SIGNAL状态；在第三次循环里返回true支持挂起。
+     *                      所以最多循环三次，则该节点就会返回true并被支持挂起。)
+     *              如果前置节点pre.waitStatus=Node.SIGNAL（在采用condition的时候）,表示等待唤醒，则当前节点肯定要进入队列排队.
+     *              如果前置节点pre.waitStatus=Node.CANCEL(表示已被取消)，则跳过移除前置节点，继续向前检查直到遇到前置节点，直到遇到非CANCEL的状态则返回false：(该步骤可以去除被取消的节点)
+     *              如果前置节点pre.waitStatus<0,则将前置节点设置为Node.SIGNAL，并返回false
+     *          2、调用LockSupport.park()挂起，并等待唤醒之后检查中断位，如果中断位为true,则抛出异常(这就是为什么说可以被中断)
+     *
      */
     private void doAcquireInterruptibly(int arg)
             throws InterruptedException {
@@ -1232,6 +1282,16 @@ public abstract class AbstractQueuedSynchronizer
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
      */
+    /***
+     *
+     * tryAcquire(arg)：尝试获得锁
+     *      成功：直接返回null
+     *      失败：
+     *          将当前节点包装成独占节点，并加入到队列尾巴。
+     *              成功: 将当前线程的中断位设置为已中断。
+     *              失败：直接返回。
+     *
+     */
     public final void acquire(int arg) {
         if (!tryAcquire(arg) &&
                 acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
@@ -1251,6 +1311,22 @@ public abstract class AbstractQueuedSynchronizer
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
      * @throws InterruptedException if the current thread is interrupted
+     */
+
+    /***
+     *
+     * 1、判断线程是中断位是否中断状态，是的话，抛出中断异常(可能中断位是由于在尝试获得锁之前就调用了interupt方法)
+     * 2、根据是否公平锁来判断线程下一步操作：
+     *      公平锁：
+     *          如果当前锁状态为0：则先判断当前是否有队列处于：有则进入对列等待；没有的话，尝试获得锁，如果获取失败则返回false
+     *          如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *      非公平锁：
+     *          如果当前锁状态为0：尝试获得锁，获得失败，则返回false
+     *          如果当前状态不为0：则判断持有锁的线程是当前线程(可能是因为同一个线程重入的原因),如果是的话，返回true,不是的话返回false.
+     *
+     * 3、如果获取失败，则准备进入中断等待
+     *
+     *
      */
     public final void acquireInterruptibly(int arg)
             throws InterruptedException {
