@@ -836,14 +836,14 @@ public abstract class AbstractQueuedSynchronizer
      *
      */
     private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
-        int ws = pred.waitStatus;
-        if (ws == Node.SIGNAL)//如果前一个节点需要被唤醒，则当前节点只能直接挂起
+        //如果前置节点已经是Node.SIGNAL，则直接返回true，表示当前节点可以挂起等待了
+        if (ws == Node.SIGNAL)
             /*
              * This node has already set status asking a release
              * to signal it, so it can safely park.
              */
             return true;
-        if (ws > 0) {
+        if (ws > 0) {//如果前置节点是cancel状态，则该节点可以从链表里移除。
             /*
              * Predecessor was cancelled. Skip over predecessors and
              * indicate retry.
@@ -852,13 +852,12 @@ public abstract class AbstractQueuedSynchronizer
                 node.prev = pred = pred.prev;
             } while (pred.waitStatus > 0);
             pred.next = node;
-        } else {
+        } else {//如果前置节点小于0，则将前置节点设置为Node.SIGNAL，并返回false（这里要注意，只是当前循环返回false，再下一个循环由于前置节点已经是Node.SIGNAL，所以会返回true并支持刮起）
             /*
              * waitStatus must be 0 or PROPAGATE.  Indicate that we
              * need a signal, but don't park yet.  Caller will need to
              * retry to make sure it cannot acquire before parking.
              */
-            //设置前一个节点为SIGNAL，表明在挂起之前是不能获得锁
             compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
         }
         return false;
@@ -959,7 +958,12 @@ public abstract class AbstractQueuedSynchronizer
         boolean failed = true;
         try {
             for (;;) {
+                //获得当前节点的前置节点
                 final Node p = node.predecessor();
+                //tryAcquire(arg)=true的话说明以下几种情况；
+                //  1、如果head节点是当前节点的前驱节点，并且当前节点能获得锁进入运行状态。说明当前线程可运行，则要将本节点设置为头结点，表示正在运行
+                //      （在前驱节点任务刚好执行完成的时候，这个时候还没主动唤醒head节点的下一个节点的时候，就是处于这种状态）
+
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
