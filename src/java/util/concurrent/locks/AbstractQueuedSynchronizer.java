@@ -1291,7 +1291,7 @@ public abstract class AbstractQueuedSynchronizer
      * tryAcquire(arg)：尝试获得锁
      *      成功：直接返回null
      *      失败：
-     *          将当前节点包装成独占节点，并加入到队列尾巴。
+     *          将当前节点包装成独占节点，并加入到队列尾巴,同时会检查队列中部分CANCEL节点并做移除。并挂起当前线程
      *              成功: 将当前线程的中断位设置为已中断。
      *              失败：直接返回。
      *

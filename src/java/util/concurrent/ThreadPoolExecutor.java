@@ -1266,10 +1266,11 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             boolean timed;      // Are workers subject to culling?
             //
             for (;;) {
+                //获得线程池中当前的线程总数
                 int wc = workerCountOf(c);
-                //判断线程是否设置了超时时间，或者池中的线程数是否超过核心线程数
-                timed = allowCoreThreadTimeOut || wc > corePoolSize;
-                //
+                //判断是否允许核心线程数超时销毁，默认是false，或者池中的线程数是否超过核心线程数
+                timed = allowCoreThreadTimeOut || wc > corePoolSize;//
+                //如果当前线程数少于最大线程数
                 if (wc <= maximumPoolSize && ! (timedOut && timed))
                     break;
                 if (compareAndDecrementWorkerCount(c))
