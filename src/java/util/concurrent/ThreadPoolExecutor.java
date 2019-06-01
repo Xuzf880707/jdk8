@@ -1200,7 +1200,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             workers.remove(w);
         } finally {
             mainLock.unlock();
-        }
+        }//
         //线程每次退出的时候，都会检查线程池状态，并判断自己是不是最后一个待关闭的线程，看是否需要关闭改变线程池的状态，比如从SHUTDOWN到TERMINATED
         tryTerminate();
 
